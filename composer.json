@@ -1,0 +1,37 @@
+{
+    "name": "thomas-0816/doctrine-dbal-duckdb",
+    "description": "DuckDB driver for Doctrine DBAL powered by the DuckDB PDO Driver",
+    "keywords": ["doctrine", "duckdb", "database", "analytics"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Thomas Bley"
+        }
+    ],
+    "require": {
+        "php": ">= 8.2",
+        "ext-pdo_duckdb": "*",
+        "doctrine/dbal": "^4.4"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3",
+        "phpunit/phpunit": "^12 || ^13",
+        "phpstan/phpstan": "*",
+        "phpunit/php-code-coverage": "^14.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "DuckDb\\DbalDuckdb\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "scripts": {
+        "phpcsfixer": "php-cs-fixer fix --dry-run --allow-risky=yes --diff",
+        "phpcsfixer_fix": "php-cs-fixer fix --allow-risky=yes --diff",
+        "phpstan": "phpstan analyse",
+        "phpunit": "phpunit --coverage-text --coverage-clover=.phpunit.clover",
+        "test": ["@phpcsfixer", "@phpstan", "@phpunit"],
+        "test_fix": ["@phpcsfixer_fix", "@phpstan", "@phpunit"]
+    }
+}
