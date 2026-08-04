@@ -200,7 +200,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
                 $keyName = 'primary';
             }
             $keyName = strtolower($keyName);
-            if (isset($result[$keyName])) {
+            if (isset($indexes[$keyName])) {
                 continue;
             }
             $options = ['lengths' => []];
