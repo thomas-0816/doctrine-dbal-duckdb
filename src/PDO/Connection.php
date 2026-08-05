@@ -55,20 +55,9 @@ final class Connection implements ConnectionInterface
         return $this->connection->quote($value);
     }
 
-    public function lastInsertId(): int|string
+    public function lastInsertId(): int
     {
-        try {
-            $value = $this->connection->lastInsertId();
-        } catch (PDOException $exception) {
-            throw Exception::new($exception);
-        }
-
-        // pdo_duckdb always returns '0' as there are no implicit identity columns.
-        if ($value === '0' || $value === '' || $value === false) {
-            return 0;
-        }
-
-        return $value;
+        return 0;
     }
 
     public function beginTransaction(): void
