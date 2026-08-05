@@ -28,8 +28,7 @@ final class Statement implements StatementInterface
                 $pdoType = match ($type) {
                     ParameterType::NULL => PDO::PARAM_NULL,
                     ParameterType::INTEGER => PDO::PARAM_INT,
-                    ParameterType::STRING,
-                    ParameterType::ASCII => PDO::PARAM_STR,
+                    ParameterType::STRING, ParameterType::ASCII => PDO::PARAM_STR,
                     ParameterType::BINARY,
                     ParameterType::LARGE_OBJECT => PDO::PARAM_LOB,
                     ParameterType::BOOLEAN => PDO::PARAM_BOOL,

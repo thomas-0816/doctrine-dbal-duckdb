@@ -5,6 +5,7 @@ namespace DuckDb\DbalDuckdb\Tests;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\ConnectionException;
 use Doctrine\DBAL\Exception\DriverException;
+use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\DBAL\Exception\InvalidColumnIndex;
 use Doctrine\DBAL\Exception\InvalidFieldNameException;
 use Doctrine\DBAL\Exception\NoActiveTransaction;
@@ -19,6 +20,7 @@ use Doctrine\DBAL\Tools\DsnParser;
 use PHPUnit\Framework\TestCase;
 use DuckDb\DbalDuckdb\Driver;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoConnectionException;
+use Doctrine\DBAL\ParameterType;
 use DuckDb\DbalDuckdb\Platforms\DuckDBPlatform;
 use Exception;
 use PHPUnit\Framework\Assert;
@@ -149,6 +151,14 @@ final class DuckDBDriverTest extends TestCase
         Assert::assertSame([2, 'b'], $result->fetchNumeric());
         Assert::assertFalse($result->fetchNumeric());
         $result->free();
+
+        $data = ['b1' => true, 'v1' => 'foo', 'null1' => null, 'n2' => 42, 'v2' => 'bar', 'v3' => 'baz', 'blob1' => 'a'];
+        $connection->executeStatement('CREATE TABLE t6 (b1 boolean, v1 varchar, null1 integer, n2 integer, v2 varchar, v3 varchar, blob1 blob)');
+        $connection->executeStatement('INSERT INTO t6 VALUES (?, ?, ?, ?, ?, ?, ?)', array_values($data), [
+            ParameterType::BOOLEAN, ParameterType::LARGE_OBJECT, ParameterType::NULL, ParameterType::INTEGER,
+            ParameterType::STRING, ParameterType::ASCII, ParameterType::BINARY
+        ]);
+        Assert::assertSame($data, $connection->fetchAssociative('SELECT * FROM t6'));
     }
 
     public function testLastInsertId(): void
@@ -294,6 +304,17 @@ final class DuckDBDriverTest extends TestCase
         $connection = DriverManager::getConnection($connectionParams);
         $connection->executeStatement('CREATE TABLE t1 (i1 integer NOT NULL PRIMARY KEY)');
         $connection->executeStatement('INSERT INTO t1 VALUES (1), (1)');
+    }
+
+    public function testForeignKeyConstraintViolationException(): void
+    {
+        $this->expectException(ForeignKeyConstraintViolationException::class);
+
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $connection->executeStatement('CREATE TABLE parent (id integer PRIMARY KEY)');
+        $connection->executeStatement('CREATE TABLE child (id integer, parent_id integer REFERENCES parent(id))');
+        $connection->executeStatement('INSERT INTO child VALUES (1, 1)');
     }
 
     public function testBeginTransactionException(): void
