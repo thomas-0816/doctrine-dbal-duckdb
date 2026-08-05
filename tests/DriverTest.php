@@ -6,9 +6,7 @@ use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\ConnectionException;
 use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
-use Doctrine\DBAL\Exception\InvalidColumnIndex;
 use Doctrine\DBAL\Exception\InvalidFieldNameException;
-use Doctrine\DBAL\Exception\NoActiveTransaction;
 use Doctrine\DBAL\Exception\NonUniqueFieldNameException;
 use Doctrine\DBAL\Exception\NotNullConstraintViolationException;
 use Doctrine\DBAL\Exception\ReadOnlyException;
@@ -19,12 +17,14 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Tools\DsnParser;
 use PHPUnit\Framework\TestCase;
 use DuckDb\DbalDuckdb\Driver;
+use DuckDb\DbalDuckdb\PDO\Statement;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoConnectionException;
 use Doctrine\DBAL\ParameterType;
 use DuckDb\DbalDuckdb\Platforms\DuckDBPlatform;
-use Exception;
 use PHPUnit\Framework\Assert;
 use PDO;
+use PDOException;
+use PDOStatement;
 
 final class DuckDBDriverTest extends TestCase
 {
@@ -315,6 +315,29 @@ final class DuckDBDriverTest extends TestCase
         $connection->executeStatement('CREATE TABLE parent (id integer PRIMARY KEY)');
         $connection->executeStatement('CREATE TABLE child (id integer, parent_id integer REFERENCES parent(id))');
         $connection->executeStatement('INSERT INTO child VALUES (1, 1)');
+    }
+
+    public function testStatementBindValueException(): void
+    {
+        $this->expectException(PdoConnectionException::class);
+
+        $stmt = $this->createMock(PDOStatement::class);
+        $stmt->expects(self::once())
+            ->method('bindValue')
+            ->willThrowException(new PDOException('bind failed'));
+        $statement = new Statement($stmt);
+        $statement->bindValue(1, 'foo', ParameterType::STRING);
+    }
+
+    public function testStatementExecuteException(): void
+    {
+        $this->expectException(PdoConnectionException::class);
+
+        $pdo = new PDO('duckdb::memory:');
+        $pdo->exec('CREATE TABLE t (a varchar, b varchar)');
+        $statement = new Statement($pdo->prepare('INSERT INTO t VALUES (?, ?)'));
+        $statement->bindValue(1, 'onlyone', ParameterType::STRING);
+        $statement->execute();
     }
 
     public function testBeginTransactionException(): void
