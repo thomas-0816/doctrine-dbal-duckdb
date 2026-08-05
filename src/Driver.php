@@ -6,7 +6,6 @@ use Doctrine\DBAL\Driver as DriverInterface;
 use Doctrine\DBAL\Driver\API\ExceptionConverter as ExceptionConverterInterface;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\ServerVersionProvider;
-use SensitiveParameter;
 use DuckDb\DbalDuckdb\PDO\Connection;
 use DuckDb\DbalDuckdb\PDO\Exception;
 use DuckDb\DbalDuckdb\Platforms\DuckDBPlatform;
@@ -21,26 +20,22 @@ final class Driver implements DriverInterface
     /**
      * {@inheritDoc}
      */
-    public function connect(
-        #[SensitiveParameter]
-        array $params,
-    ): Connection {
+    public function connect(array $params): Connection
+    {
         $dsn = 'duckdb:';
 
         if (isset($params['path'])) {
             $dsn .= $params['path'];
         } elseif (isset($params['memory'])) {
             $dsn .= ':memory:';
+        } elseif (isset($params['dbname'])) {
+            $dsn .= $params['dbname'];
         }
 
         $options = $params['driverOptions'] ?? [];
 
         try {
-            if (PHP_VERSION_ID < 80400) {
-                $pdo = new PDO($dsn, '', '', $options);
-            } else {
-                $pdo = PDO::connect($dsn, '', '', $options);
-            }
+            $pdo = (PHP_VERSION_ID < 80400) ? new PDO($dsn, '', '', $options) : PDO::connect($dsn, '', '', $options);
         } catch (PDOException $exception) {
             throw Exception::new($exception);
         }

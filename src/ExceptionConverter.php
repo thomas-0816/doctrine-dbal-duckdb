@@ -49,15 +49,13 @@ final class ExceptionConverter implements ExceptionConverterInterface
         }
 
         if (
-            str_contains($message, 'does not exist!')
-            && str_contains($message, 'Table with name')
+            str_contains($message, 'does not exist!') && str_contains($message, 'Table with name')
         ) {
             return new TableNotFoundException($exception, $query);
         }
 
         if (
-            str_contains($message, 'does not exist')
-            || str_contains($message, 'not found in FROM clause')
+            str_contains($message, 'does not exist') || str_contains($message, 'not found in FROM clause')
         ) {
             return new InvalidFieldNameException($exception, $query);
         }
@@ -70,7 +68,7 @@ final class ExceptionConverter implements ExceptionConverterInterface
             return new SyntaxErrorException($exception, $query);
         }
 
-        if (str_contains($message, 'read-only database')) {
+        if (str_contains($message, 'read-only mode')) {
             return new ReadOnlyException($exception, $query);
         }
 
