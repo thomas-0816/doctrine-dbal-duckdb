@@ -68,14 +68,16 @@ final class DuckDBDriverTest extends TestCase
         Assert::assertFileExists($tmpFile);
         @unlink($tmpFile);
 
-        $dsnParser = new DsnParser(['duckdb' => Driver::class]);
-        $params = $dsnParser->parse('duckdb://_//tmp/test.duckdb');
-        $connection = DriverManager::getConnection($params);
-        Assert::assertInstanceOf(DuckDBPlatform::class, $connection->getDatabasePlatform());
-        Assert::assertFalse($connection->isConnected());
-        Assert::assertSame(1, $connection->fetchOne("SELECT 1"));
-        Assert::assertFileExists('/tmp/test.duckdb');
-        @unlink($tmpFile);
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $dsnParser = new DsnParser(['duckdb' => Driver::class]);
+            $params = $dsnParser->parse('duckdb://_//tmp/test.duckdb');
+            $connection = DriverManager::getConnection($params);
+            Assert::assertInstanceOf(DuckDBPlatform::class, $connection->getDatabasePlatform());
+            Assert::assertFalse($connection->isConnected());
+            Assert::assertSame(1, $connection->fetchOne("SELECT 1"));
+            Assert::assertFileExists('/tmp/test.duckdb');
+            @unlink('/tmp/test.duckdb');
+        }
 
         $dsnParser = new DsnParser(['duckdb' => Driver::class]);
         $connectionParams = $dsnParser->parse('duckdb::memory:');
