@@ -132,7 +132,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
                 $editor->setComment($row['comment']);
             }
 
-            yield new TableColumnMetadataRow($row['schemaName'], $row['table_name'], $editor->create());
+            yield new TableColumnMetadataRow($row['schema_name'], $row['table_name'], $editor->create());
         }
     }
 
