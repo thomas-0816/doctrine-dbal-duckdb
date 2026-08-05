@@ -3,6 +3,8 @@
 namespace DuckDb\DbalDuckdb\PDO;
 
 use Doctrine\DBAL\Driver\Connection as ConnectionInterface;
+use Doctrine\DBAL\Driver\PDO\Exception;
+use Doctrine\DBAL\Driver\PDO\Result;
 use PDO;
 use PDOException;
 use PDOStatement;

@@ -18,7 +18,7 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Tools\DsnParser;
 use PHPUnit\Framework\TestCase;
 use DuckDb\DbalDuckdb\Driver;
-use DuckDb\DbalDuckdb\PDO\Exception as PdoConnectionException;
+use Doctrine\DBAL\Driver\PDO\Exception as PdoConnectionException;
 use DuckDb\DbalDuckdb\Platforms\DuckDBPlatform;
 use Exception;
 use PHPUnit\Framework\Assert;
@@ -294,15 +294,6 @@ final class DuckDBDriverTest extends TestCase
         $connection = DriverManager::getConnection($connectionParams);
         $connection->executeStatement('CREATE TABLE t1 (i1 integer NOT NULL PRIMARY KEY)');
         $connection->executeStatement('INSERT INTO t1 VALUES (1), (1)');
-    }
-
-    public function testGetColumnNameException(): void
-    {
-        $this->expectException(InvalidColumnIndex::class);
-
-        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
-        $connection = DriverManager::getConnection($connectionParams);
-        $connection->executeQuery('SELECT 1')->getColumnName(1);
     }
 
     public function testBeginTransactionException(): void

@@ -2,6 +2,8 @@
 
 namespace DuckDb\DbalDuckdb\PDO;
 
+use Doctrine\DBAL\Driver\PDO\Exception;
+use Doctrine\DBAL\Driver\PDO\Result;
 use Doctrine\DBAL\Driver\Statement as StatementInterface;
 use Doctrine\DBAL\ParameterType;
 use PDO;
