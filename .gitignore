@@ -1,4 +1,4 @@
 .phpunit.cache/
 .php-cs-fixer.cache
-.phpunit.clover
+.phpunit.coverage
 vendor/
