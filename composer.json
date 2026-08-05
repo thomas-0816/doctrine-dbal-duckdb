@@ -15,9 +15,9 @@
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3",
-        "phpunit/phpunit": "^12 || ^13",
+        "phpunit/phpunit": "^11 || ^12 || ^13",
         "phpstan/phpstan": "*",
-        "phpunit/php-code-coverage": "^14.2"
+        "phpunit/php-code-coverage": "^11 || ^12 || ^13 || ^14"
     },
     "autoload": {
         "psr-4": {
