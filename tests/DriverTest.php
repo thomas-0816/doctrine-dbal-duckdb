@@ -184,6 +184,11 @@ final class DuckDBDriverTest extends TestCase
         $connection->executeStatement('CREATE TABLE t1 (i1 integer)');
         $connection->executeStatement('INSERT INTO t1 VALUES (1)');
         Assert::assertSame(0, $connection->lastInsertId());
+
+        $connection->executeStatement('CREATE SEQUENCE seq_t2_i1');
+        $connection->executeStatement("CREATE TABLE t2 (i1 integer not null default nextval('seq_t2_i1') primary key)");
+        Assert::assertSame(1, $connection->fetchOne('INSERT INTO t2 VALUES (DEFAULT) RETURNING *'));
+        Assert::assertSame(2, $connection->fetchOne('INSERT INTO t2 VALUES (DEFAULT) RETURNING *'));
     }
 
     public function testGetServerVersion(): void
