@@ -72,6 +72,7 @@ jobs:
             sudo pie install thomas-0816/pdo-duckdb-php
           fi
           php -m | grep duckdb
+          rm composer.lock
           composer install
           if [ "$RUNNER_OS" != "Windows" ]; then
             vendor/bin/php-cs-fixer fix --dry-run --allow-risky=yes --diff
