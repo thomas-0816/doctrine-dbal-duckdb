@@ -54,6 +54,20 @@ final class DuckDBDriverTest extends TestCase
         Assert::assertFileExists($tmpFile);
         @unlink($tmpFile);
 
+        $connectionParams = ['driverClass' => Driver::class, 'memory' => true];
+        $connection = DriverManager::getConnection($connectionParams);
+        Assert::assertInstanceOf(DuckDBPlatform::class, $connection->getDatabasePlatform());
+        Assert::assertFalse($connection->isConnected());
+        Assert::assertSame(1, $connection->fetchOne("SELECT 1"));
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'connect') . '.duckdb';
+        $connectionParams = ['driverClass' => Driver::class, 'path' => $tmpFile];
+        $connection = DriverManager::getConnection($connectionParams);
+        Assert::assertInstanceOf(DuckDBPlatform::class, $connection->getDatabasePlatform());
+        Assert::assertSame(1, $connection->fetchOne("SELECT 1"));
+        Assert::assertFileExists($tmpFile);
+        @unlink($tmpFile);
+
         $dsnParser = new DsnParser(['duckdb' => Driver::class]);
         $params = $dsnParser->parse('duckdb://_//tmp/test.duckdb');
         $connection = DriverManager::getConnection($params);
@@ -156,7 +170,7 @@ final class DuckDBDriverTest extends TestCase
         $connection->executeStatement('CREATE TABLE t6 (b1 boolean, v1 varchar, null1 integer, n2 integer, v2 varchar, v3 varchar, blob1 blob)');
         $connection->executeStatement('INSERT INTO t6 VALUES (?, ?, ?, ?, ?, ?, ?)', array_values($data), [
             ParameterType::BOOLEAN, ParameterType::LARGE_OBJECT, ParameterType::NULL, ParameterType::INTEGER,
-            ParameterType::STRING, ParameterType::ASCII, ParameterType::BINARY
+            ParameterType::STRING, ParameterType::ASCII, ParameterType::BINARY,
         ]);
         Assert::assertSame($data, $connection->fetchAssociative('SELECT * FROM t6'));
     }
