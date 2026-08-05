@@ -35,7 +35,7 @@ final class Driver implements DriverInterface
         $options = $params['driverOptions'] ?? [];
 
         try {
-            $pdo = (PHP_VERSION_ID < 80400) ? new PDO($dsn, '', '', $options) : PDO::connect($dsn, '', '', $options); // @phpstan-ignore-line
+            $pdo = new PDO($dsn, null, null, $options);
         } catch (PDOException $exception) {
             throw Exception::new($exception);
         }
