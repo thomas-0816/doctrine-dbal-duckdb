@@ -18,6 +18,17 @@ use DuckDb\DBAL\Platforms\DuckDBPlatform;
  */
 class DuckDBSchemaManager extends AbstractSchemaManager
 {
+    public function listSchemaNames(): array
+    {
+        return $this->connection->fetchFirstColumn(
+            'SELECT schema_name
+            FROM duckdb_schemas()
+            WHERE database_name = current_database() AND NOT internal
+            ORDER BY schema_name
+            '
+        );
+    }
+
     public function createForeignKey(ForeignKeyConstraint $foreignKey, string $table): void
     {
         if ($table === '') {
