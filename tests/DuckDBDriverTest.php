@@ -279,6 +279,76 @@ final class DuckDBDriverTest extends TestCase
         Assert::assertSame([], $schemaManager->introspectTableNames());
     }
 
+    public function testQueryBuilder(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $connection->executeStatement('CREATE TABLE t1 (i1 integer, v1 varchar)');
+
+        $builder = $connection->createQueryBuilder();
+        $builder->insert('t1')
+            ->values(['i1' => $builder->createPositionalParameter(21), 'v1' => $builder->createPositionalParameter('foo')])
+            ->executeStatement();
+        $builder = $connection->createQueryBuilder();
+        $builder->insert('t1')
+            ->values(['i1' => $builder->createNamedParameter(42), 'v1' => $builder->createNamedParameter('bar')])
+            ->executeStatement();
+        $builder = $connection->createQueryBuilder();
+        $builder->update('t1')
+            ->set('v1', '?')
+            ->where('v1 = ?')
+            ->setParameter(0, 'baz')
+            ->setParameter(1, 'bar')
+            ->executeStatement();
+        $result = $connection->createQueryBuilder()
+            ->select('i1', 'v1')
+            ->from('t1')
+            ->where('v1 = ?')
+            ->setParameter(0, 'baz')
+            ->fetchAllAssociative();
+        Assert::assertSame([['i1' => 42, 'v1' => 'baz']], $result);
+        $result = $connection->createQueryBuilder()
+            ->select('i1', 'v1')
+            ->distinct()
+            ->from('t1')
+            ->where('v1 = ?')
+            ->setMaxResults(5)
+            ->setParameter(0, 'foo')
+            ->fetchAllAssociative(); // ->getSQL()
+        Assert::assertSame([['i1' => 21, 'v1' => 'foo']], $result);
+
+        $csvFile = tempnam(sys_get_temp_dir(), 'csv') . '.csv';
+        $list = [['aaa', 'bbb'], ['123', '456'], ['aaa', 'bbb']];
+        $fp = fopen($csvFile, 'w');
+        foreach ($list as $fields) {
+            fputcsv($fp, $fields, ',', '"', "");
+        }
+        fclose($fp);
+
+        $result = $connection->createQueryBuilder()
+            ->select('*')
+            ->distinct()
+            ->from($connection->quote($csvFile), 'csv')
+            ->where('aaa = ?')
+            ->setMaxResults(1)
+            ->setParameter(0, '123')
+            ->fetchAllAssociative(); // ->getSQL()
+        Assert::assertSame([['aaa' => '123', 'bbb' => '456']], $result);
+
+        $cteQueryBuilder1 = $connection->createQueryBuilder()
+            ->select('id')
+            ->from('table_a')
+            ->where('id = :id');
+        $queryBuilder = $connection->createQueryBuilder()
+            ->with('cte_a', $cteQueryBuilder1)
+            ->select('id')
+            ->from('cte_b', 'b')
+            ->setParameter('id', 1);
+
+        Assert::assertSame(['id' => 1], $queryBuilder->getParameters());
+        Assert::assertSame('WITH cte_a AS (SELECT id FROM table_a WHERE id = :id) SELECT id FROM cte_b b', $queryBuilder->getSQL());
+    }
+
     public function testGetServerVersion(): void
     {
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
