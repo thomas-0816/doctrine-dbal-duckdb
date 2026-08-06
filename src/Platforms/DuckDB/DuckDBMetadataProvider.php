@@ -1,6 +1,6 @@
 <?php
 
-namespace DuckDb\Dbal\Platforms\DuckDB;
+namespace DuckDb\DBAL\Platforms\DuckDB;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
@@ -19,7 +19,7 @@ use Doctrine\DBAL\Schema\Metadata\SequenceMetadataRow;
 use Doctrine\DBAL\Schema\Metadata\TableColumnMetadataRow;
 use Doctrine\DBAL\Schema\Metadata\TableMetadataRow;
 use Doctrine\DBAL\Schema\Metadata\ViewMetadataRow;
-use DuckDb\Dbal\Platforms\DuckDBPlatform;
+use DuckDb\DBAL\Platforms\DuckDBPlatform;
 
 final readonly class DuckDBMetadataProvider implements MetadataProvider
 {

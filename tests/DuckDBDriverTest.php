@@ -1,6 +1,6 @@
 <?php
 
-namespace DuckDb\Dbal\Tests;
+namespace DuckDb\DBAL\Tests;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Configuration;
@@ -20,13 +20,13 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Tools\DsnParser;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
-use DuckDb\Dbal\Driver;
-use DuckDb\Dbal\PDO\Statement;
+use DuckDb\DBAL\Driver;
+use DuckDb\DBAL\PDO\Statement;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoConnectionException;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\DBAL\Types\Types;
-use DuckDb\Dbal\Platforms\DuckDBPlatform;
-use DuckDb\Dbal\Schema\DuckDBTable;
+use DuckDb\DBAL\Platforms\DuckDBPlatform;
+use DuckDb\DBAL\Schema\DuckDBTable;
 use PHPUnit\Framework\Assert;
 use PDO;
 use PDOException;

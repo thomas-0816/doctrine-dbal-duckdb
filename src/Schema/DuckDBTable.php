@@ -1,12 +1,12 @@
 <?php
 
-namespace DuckDb\Dbal\Schema;
+namespace DuckDb\DBAL\Schema;
 
 use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Exception\UnknownColumnType;
 use Doctrine\DBAL\Types\Type;
-use DuckDb\Dbal\Types\PassthroughType;
+use DuckDb\DBAL\Types\PassthroughType;
 
 /**
  * A {@see Table} that tolerates unregistered DuckDB type names.

@@ -1,6 +1,6 @@
 <?php
 
-namespace DuckDb\Dbal\Schema;
+namespace DuckDb\DBAL\Schema;
 
 use Doctrine\DBAL\Result;
 use Doctrine\DBAL\Schema\AbstractSchemaManager;
@@ -11,7 +11,7 @@ use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\Schema\View;
 use Doctrine\DBAL\Types\Type;
-use DuckDb\Dbal\Platforms\DuckDBPlatform;
+use DuckDb\DBAL\Platforms\DuckDBPlatform;
 
 /**
  * @extends AbstractSchemaManager<DuckDBPlatform>

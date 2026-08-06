@@ -1,15 +1,15 @@
 <?php
 
-namespace DuckDb\Dbal\Tests;
+namespace DuckDb\DBAL\Tests;
 
 use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Logging\Middleware;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
-use DuckDb\Dbal\Driver;
+use DuckDb\DBAL\Driver;
 use Doctrine\DBAL\Types\Types;
-use DuckDb\Dbal\Schema\DuckDBTable;
+use DuckDb\DBAL\Schema\DuckDBTable;
 use PHPUnit\Framework\Assert;
 use Stringable;
 
