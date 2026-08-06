@@ -134,6 +134,20 @@ final class DuckDBDriverTest extends TestCase
         Assert::assertSame(42, $connection->fetchOne('select i1 from t1'));
         $connection->commit();
         Assert::assertSame(42, $connection->fetchOne('select i1 from t1'));
+
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $config = new Configuration();
+        $config->setAutoCommit(false);
+        $connection = DriverManager::getConnection($connectionParams, $config);
+        $connection->executeStatement('CREATE TABLE t2 (i1 integer)');
+        $connection->commit();
+        $connection->executeStatement('INSERT INTO t2 VALUES (42)');
+        $connection->rollBack();
+        $connection->executeStatement('INSERT INTO t2 VALUES (42)');
+        $connection->rollBack();
+        $connection->executeStatement('INSERT INTO t2 VALUES (42)');
+        $connection->commit();
+        Assert::assertSame(1, $connection->fetchOne('select count(*) from t2'));
     }
 
     public function testResult(): void
