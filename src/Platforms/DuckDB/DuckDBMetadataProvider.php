@@ -112,7 +112,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
             $typeName = $this->getBaseTypeName($row['data_type']);
             $editor = Column::editor()
                 ->setQuotedName($row['column_name'])
-                ->setTypeName($this->platform->getDoctrineTypeMapping($typeName));
+                ->setType($this->platform->getDoctrineType($typeName));
             if ($typeName === 'decimal' || $typeName === 'numeric') {
                 if ($row['numeric_precision'] !== null) {
                     $editor->setPrecision((int) $row['numeric_precision']);
