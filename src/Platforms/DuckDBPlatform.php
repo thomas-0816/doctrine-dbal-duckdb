@@ -226,7 +226,7 @@ class DuckDBPlatform extends AbstractPlatform
             }
 
             $sequenceName = trim($name, '"') . '_' . trim($column['name'], '"') . '_seq';
-            $columns[$index]['default'] = "nextval('" . $sequenceName . "')";
+            $columns[$index]['default'] = 'nextval(' . $this->quoteStringLiteral($sequenceName) . ')';
             $sql[] = 'CREATE SEQUENCE IF NOT EXISTS ' . $sequenceName;
         }
         $columnListSql = $this->getColumnDeclarationListSQL($columns);
@@ -307,7 +307,7 @@ class DuckDBPlatform extends AbstractPlatform
 
     public function getSequenceNextValSQL(string $sequence): string
     {
-        return "SELECT NEXTVAL('" . $sequence . "')";
+        return 'SELECT NEXTVAL(' . $this->quoteStringLiteral($sequence) . ')';
     }
 
     public function getEmptyIdentityInsertSQL(string $quotedTableName, string $quotedIdentifierColumnName): string
