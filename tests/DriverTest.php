@@ -2,7 +2,10 @@
 
 namespace DuckDb\DbalDuckdb\Tests;
 
+use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Logging\Middleware;
 use Doctrine\DBAL\Exception\ConnectionException;
 use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
@@ -16,6 +19,7 @@ use Doctrine\DBAL\Exception\TableNotFoundException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Tools\DsnParser;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
 use DuckDb\DbalDuckdb\Driver;
 use DuckDb\DbalDuckdb\PDO\Statement;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoConnectionException;
@@ -25,6 +29,7 @@ use PHPUnit\Framework\Assert;
 use PDO;
 use PDOException;
 use PDOStatement;
+use Stringable;
 
 final class DuckDBDriverTest extends TestCase
 {
@@ -142,6 +147,8 @@ final class DuckDBDriverTest extends TestCase
         Assert::assertSame([['i1' => 42]], $connection->fetchAllAssociative('SELECT * FROM t1 WHERE i1 = ?', [42]));
         Assert::assertSame([42], $connection->fetchFirstColumn('SELECT * FROM t1 WHERE i1 = ?', [42]));
         Assert::assertSame(['foo' => 'bar'], $connection->fetchAllKeyValue("SELECT 'foo', 'bar'"));
+        Assert::assertSame([1 => ['b' => 'a', 'd' => 'c']], $connection->fetchAllAssociativeIndexed("SELECT 1, 'a' as b, 'c' as d"));
+        Assert::assertSame([['b' => 1], ['b' => 2]], iterator_to_array($connection->iterateAssociative('SELECT * FROM VALUES ((1)), ((2)) a(b)')));
 
         $connection->executeStatement('CREATE TABLE t2 (i1 varchar[])');
         $connection->executeStatement('INSERT INTO t2 VALUES (?)', [['foo', 'bar']]);
@@ -175,6 +182,36 @@ final class DuckDBDriverTest extends TestCase
             ParameterType::STRING, ParameterType::ASCII, ParameterType::BINARY,
         ]);
         Assert::assertSame($data, $connection->fetchAssociative('SELECT * FROM t6'));
+
+        $date = new \DateTime("2011-03-05 14:00:21", new \DateTimeZone('Europe/Berlin'));
+        $date2 = new \DateTime("2011-03-05 14:00:21", new \DateTimeZone('America/New_York'));
+        $connection->executeStatement('CREATE TABLE t7 (d1 timestamp, d2 timestamptz)');
+        $connection->executeStatement('INSERT INTO t7 VALUES (?, ?)', [$date, $date2], ['datetime', 'datetimetz']);
+        $stmt = $connection->prepare('SELECT * FROM t7 WHERE d1 >= ?');
+        $stmt->bindValue(1, $date, 'datetime');
+        Assert::assertSame(['2011-03-05 14:00:21', '2011-03-05 20:00:21+01'], $stmt->executeQuery()->fetchNumeric());
+
+        $connection->executeStatement('CREATE TABLE t8 (i1 integer)');
+        $connection->executeStatement('INSERT INTO t8 VALUES (1), (2)');
+        Assert::assertSame([1, 2], $connection->fetchFirstColumn('SELECT * FROM t8 WHERE i1 IN (?)', [[1, 2, 3]], [ArrayParameterType::INTEGER]));
+        Assert::assertSame([1, 2], $connection->fetchFirstColumn('SELECT * FROM t8 WHERE i1 IN cast(? as int[])', [[1, 2, 3]]));
+    }
+
+    public function testInsertUpdateDelete(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+
+        $connection->executeStatement('CREATE TABLE user (id integer, username varchar)');
+
+        $connection->insert('user', ['id' => 1, 'username' => 'foo']);
+        Assert::assertSame('foo', $connection->fetchOne('SELECT username from user where id = 1'));
+
+        $connection->update('user', ['username' => 'bar'], ['id' => 1]);
+        Assert::assertSame('bar', $connection->fetchOne('SELECT username from user where id = 1'));
+
+        $connection->delete('user', ['id' => 1]);
+        Assert::assertSame(false, $connection->fetchOne('SELECT username from user where id = 1'));
     }
 
     public function testLastInsertId(): void
@@ -384,5 +421,20 @@ final class DuckDBDriverTest extends TestCase
 
         $connection = (new Driver())->connect(['dbname' => ':memory:']);
         $connection->rollBack();
+    }
+
+    private function setStdOutLogger(Configuration $config): void
+    {
+        $logger = new class extends AbstractLogger {
+            public function log($level, string|Stringable $message, array $context = []): void
+            {
+                foreach ($context as $key => $value) {
+                    $message = str_replace('{' . $key . '}', json_encode($value), $message,);
+                }
+                fwrite(STDOUT, $message . PHP_EOL);
+            }
+        };
+
+        $config->setMiddlewares([new Middleware($logger)]);
     }
 }

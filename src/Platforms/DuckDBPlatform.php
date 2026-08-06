@@ -117,6 +117,11 @@ class DuckDBPlatform extends AbstractPlatform
         );
     }
 
+    public function getDateTimeTzFormatString(): string
+    {
+        return 'Y-m-d H:i:sO';
+    }
+
     /** @link https://duckdb.org/docs/sql/functions/system.html */
     public function getCurrentDatabaseExpression(): string
     {
