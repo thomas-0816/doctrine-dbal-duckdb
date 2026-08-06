@@ -1,6 +1,6 @@
 <?php
 
-namespace DuckDb\DbalDuckdb\Platforms;
+namespace DuckDb\Duckdb\Platforms;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
@@ -18,9 +18,9 @@ use Doctrine\DBAL\SQL\Builder\DefaultSelectSQLBuilder;
 use Doctrine\DBAL\SQL\Builder\SelectSQLBuilder;
 use Doctrine\DBAL\TransactionIsolationLevel;
 use Doctrine\Deprecations\Deprecation;
-use DuckDb\DbalDuckdb\Platforms\DuckDB\DuckDBMetadataProvider;
-use DuckDb\DbalDuckdb\Platforms\Keywords\DuckDBKeywords;
-use DuckDb\DbalDuckdb\Schema\DuckDBSchemaManager;
+use DuckDb\Dbal\Platforms\DuckDB\DuckDBMetadataProvider;
+use DuckDb\Dbal\Platforms\Keywords\DuckDBKeywords;
+use DuckDb\Dbal\Schema\DuckDBSchemaManager;
 
 /**
  * The DuckDBPlatform class describes the specifics and dialects of the DuckDB

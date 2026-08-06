@@ -1,6 +1,6 @@
 <?php
 
-namespace DuckDb\DbalDuckdb\Schema;
+namespace DuckDb\Dbal\Schema;
 
 use Doctrine\DBAL\Result;
 use Doctrine\DBAL\Schema\AbstractSchemaManager;
@@ -11,7 +11,7 @@ use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\Schema\View;
 use Doctrine\DBAL\Types\Type;
-use DuckDb\DbalDuckdb\Platforms\DuckDBPlatform;
+use DuckDb\Dbal\Platforms\DuckDBPlatform;
 
 /**
  * @extends AbstractSchemaManager<DuckDBPlatform>
@@ -40,6 +40,39 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         $foreignKey = $table->getForeignKey($name);
 
         $this->alterTable(new TableDiff($table, droppedForeignKeys: [$foreignKey]));
+    }
+
+    public function dropTable(string $name): void
+    {
+        // DuckDB does not allow dropping a sequence that a table still depends on,
+        // so the table is dropped first and its autoincrement sequences afterwards.
+        $table  = trim($name, '"');
+        $schema = null;
+        if (str_contains($table, '.')) {
+            [$schema, $table] = explode('.', $table, 2);
+        }
+        $params = [$table];
+        $sql = '
+            SELECT column_default
+            FROM duckdb_columns()
+            WHERE database_name = current_database() AND NOT internal AND table_name = ?
+        ';
+        if ($schema !== null) {
+            $sql .= ' AND schema_name = ?';
+            $params[] = $schema;
+        }
+        $sequences = [];
+        foreach ($this->connection->fetchFirstColumn($sql, $params) as $default) {
+            if (preg_match("/nextval\('([^']+)'\)/", $default ?? '', $matches)) {
+                $sequences[] = $matches[1];
+            }
+        }
+
+        parent::dropTable($name);
+
+        foreach ($sequences as $sequence) {
+            $this->connection->executeStatement('DROP SEQUENCE IF EXISTS ' . $sequence);
+        }
     }
 
     /**

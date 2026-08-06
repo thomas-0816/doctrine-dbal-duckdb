@@ -21,7 +21,7 @@
     },
     "autoload": {
         "psr-4": {
-            "DuckDb\\DbalDuckdb\\": "src/"
+            "DuckDb\\Dbal\\": "src/"
         }
     },
     "minimum-stability": "stable",

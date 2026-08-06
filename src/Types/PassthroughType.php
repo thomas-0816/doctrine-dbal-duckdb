@@ -1,6 +1,6 @@
 <?php
 
-namespace DuckDb\DbalDuckdb\Types;
+namespace DuckDb\Dbal\Types;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;

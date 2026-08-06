@@ -1,6 +1,6 @@
 <?php
 
-namespace DuckDb\DbalDuckdb\PDO;
+namespace DuckDb\Dbal\PDO;
 
 use Doctrine\DBAL\Driver\PDO\Exception;
 use Doctrine\DBAL\Driver\PDO\Result;

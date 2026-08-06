@@ -1,6 +1,6 @@
 <?php
 
-namespace DuckDb\DbalDuckdb\Platforms\Keywords;
+namespace DuckDb\Dbal\Platforms\Keywords;
 
 use Doctrine\DBAL\Platforms\Keywords\KeywordList;
 

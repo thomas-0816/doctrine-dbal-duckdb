@@ -1,6 +1,6 @@
 <?php
 
-namespace DuckDb\DbalDuckdb;
+namespace DuckDb\Dbal;
 
 use Doctrine\DBAL\Driver\API\ExceptionConverter as ExceptionConverterInterface;
 use Doctrine\DBAL\Driver\Exception;

@@ -1,6 +1,6 @@
 <?php
 
-namespace DuckDb\DbalDuckdb\Tests;
+namespace DuckDb\Dbal\Tests;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Configuration;
@@ -20,11 +20,13 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Tools\DsnParser;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
-use DuckDb\DbalDuckdb\Driver;
-use DuckDb\DbalDuckdb\PDO\Statement;
+use DuckDb\Dbal\Driver;
+use DuckDb\Dbal\PDO\Statement;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoConnectionException;
 use Doctrine\DBAL\ParameterType;
-use DuckDb\DbalDuckdb\Platforms\DuckDBPlatform;
+use Doctrine\DBAL\Types\Types;
+use DuckDb\Dbal\Platforms\DuckDBPlatform;
+use DuckDb\Dbal\Schema\DuckDBTable;
 use PHPUnit\Framework\Assert;
 use PDO;
 use PDOException;
@@ -226,6 +228,28 @@ final class DuckDBDriverTest extends TestCase
         $connection->executeStatement("CREATE TABLE t2 (i1 integer not null default nextval('seq_t2_i1') primary key)");
         Assert::assertSame(1, $connection->fetchOne('INSERT INTO t2 VALUES (DEFAULT) RETURNING *'));
         Assert::assertSame(2, $connection->fetchOne('INSERT INTO t2 VALUES (DEFAULT) RETURNING *'));
+    }
+
+    public function testDropTableDropsAutoincrementSequence(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $schemaManager = $connection->createSchemaManager();
+
+        $table = new DuckDBTable('t1');
+        $table->addColumn('id', Types::INTEGER, ['autoincrement' => true]);
+        $table->setPrimaryKey(['id']);
+        $schemaManager->createTable($table);
+        Assert::assertCount(1, $schemaManager->introspectSequences());
+        $schemaManager->dropTable('t1');
+        Assert::assertSame([], $schemaManager->introspectSequences());
+        Assert::assertSame([], $schemaManager->introspectTableNames());
+
+        $plain = new DuckDBTable('t2');
+        $plain->addColumn('id', Types::INTEGER);
+        $schemaManager->createTable($plain);
+        $schemaManager->dropTable('t2');
+        Assert::assertSame([], $schemaManager->introspectTableNames());
     }
 
     public function testGetServerVersion(): void

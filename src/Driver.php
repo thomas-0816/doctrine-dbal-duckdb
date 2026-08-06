@@ -1,14 +1,14 @@
 <?php
 
-namespace DuckDb\DbalDuckdb;
+namespace DuckDb\Dbal;
 
 use Doctrine\DBAL\Driver as DriverInterface;
 use Doctrine\DBAL\Driver\API\ExceptionConverter as ExceptionConverterInterface;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\ServerVersionProvider;
-use DuckDb\DbalDuckdb\PDO\Connection;
+use DuckDb\Dbal\PDO\Connection;
 use Doctrine\DBAL\Driver\PDO\Exception;
-use DuckDb\DbalDuckdb\Platforms\DuckDBPlatform;
+use DuckDb\Dbal\Platforms\DuckDBPlatform;
 use PDO;
 use PDOException;
 
