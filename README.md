@@ -1,4 +1,4 @@
-Doctrine DBAL driver for DuckDB
+# Doctrine DBAL driver for DuckDB
 
 A [DuckDB](https://duckdb.org) database driver for Doctrine DBAL powered by the DuckDB PDO Driver.
 
