@@ -199,6 +199,8 @@ final class DuckDBDriverTest extends TestCase
         ]);
         Assert::assertSame($data, $connection->fetchAssociative('SELECT * FROM t6'));
 
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:', 'driverOptions' => [PDO::DUCKDB_ATTR_CONFIG => ['TimeZone' => 'Europe/Berlin']]];
+        $connection = DriverManager::getConnection($connectionParams);
         $date = new \DateTime("2011-03-05 14:00:21", new \DateTimeZone('Europe/Berlin'));
         $date2 = new \DateTime("2011-03-05 14:00:21", new \DateTimeZone('America/New_York'));
         $connection->executeStatement('CREATE TABLE t7 (d1 timestamp, d2 timestamptz)');
