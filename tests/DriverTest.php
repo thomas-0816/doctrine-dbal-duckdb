@@ -429,7 +429,7 @@ final class DuckDBDriverTest extends TestCase
             public function log($level, string|Stringable $message, array $context = []): void
             {
                 foreach ($context as $key => $value) {
-                    $message = str_replace('{' . $key . '}', json_encode($value), $message,);
+                    $message = str_replace('{' . $key . '}', json_encode($value), $message);
                 }
                 fwrite(STDOUT, $message . PHP_EOL);
             }
