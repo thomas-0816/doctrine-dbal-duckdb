@@ -36,7 +36,7 @@ DuckDB extensions work the same way as they do in DuckDB CLI.
 
 ## Configuration
 
-Work in progress
+Work in progress ...
 
 ## Performance
 
