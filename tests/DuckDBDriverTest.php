@@ -197,6 +197,17 @@ final class DuckDBDriverTest extends TestCase
         $connection->executeStatement('INSERT INTO t8 VALUES (1), (2)');
         Assert::assertSame([1, 2], $connection->fetchFirstColumn('SELECT * FROM t8 WHERE i1 IN (?)', [[1, 2, 3]], [ArrayParameterType::INTEGER]));
         Assert::assertSame([1, 2], $connection->fetchFirstColumn('SELECT * FROM t8 WHERE i1 IN cast(? as int[])', [[1, 2, 3]]));
+
+        $connection->executeStatement('CREATE TABLE t9 (v1 varchar)');
+        $connection->executeStatement("INSERT INTO t9 VALUES ('foo'), ('bar')");
+
+        $statement = $connection->prepare('SELECT * FROM t9 WHERE v1 = ?');
+        $statement->bindValue(1, 'foo');
+        Assert::assertSame([['foo']], $statement->executeQuery()->fetchAllNumeric());
+
+        $statement = $connection->prepare('SELECT * FROM t9 WHERE v1 = :user');
+        $statement->bindValue('user', 'foo');
+        Assert::assertSame([['foo']], $statement->executeQuery()->fetchAllNumeric());
     }
 
     public function testInsertUpdateDelete(): void
