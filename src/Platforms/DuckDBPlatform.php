@@ -17,9 +17,11 @@ use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\SQL\Builder\DefaultSelectSQLBuilder;
 use Doctrine\DBAL\SQL\Builder\SelectSQLBuilder;
 use Doctrine\DBAL\TransactionIsolationLevel;
+use Doctrine\DBAL\Types\Type;
 use Doctrine\Deprecations\Deprecation;
 use DuckDb\DBAL\Platforms\DuckDB\DuckDBMetadataProvider;
 use DuckDb\DBAL\Platforms\Keywords\DuckDBKeywords;
+use DuckDb\DBAL\Schema\DuckDBType;
 use DuckDb\DBAL\Schema\DuckDBSchemaManager;
 
 /**
@@ -562,6 +564,30 @@ class DuckDBPlatform extends AbstractPlatform
 
         // @phpstan-ignore return.type
         return $map;
+    }
+
+    /**
+     * Returns the Doctrine type for the given database type.
+     *
+     * DuckDB returns complete type declarations such as "DECIMAL(18,3)",
+     * "VARCHAR[]" or "ENUM('a','b')". The parens are stripped before the
+     * lookup, and types without a dedicated mapping (arrays, nested structs,
+     * maps, unions, enums) are reported as a {@see DuckDBType} that emits the
+     * type name verbatim.
+     */
+    public function getDoctrineType(string $dbType): Type
+    {
+        $typeName = strtolower($dbType);
+        $parenPosition = strpos($typeName, '(');
+        if ($parenPosition !== false) {
+            $typeName = substr($typeName, 0, $parenPosition);
+        }
+
+        if ($this->hasDoctrineTypeMappingFor($typeName)) {
+            return Type::getType($this->getDoctrineTypeMapping($typeName));
+        }
+
+        return new DuckDBType($typeName);
     }
 
     protected function initializeDoctrineTypeMappings(): void
