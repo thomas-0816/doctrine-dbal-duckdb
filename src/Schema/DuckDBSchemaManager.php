@@ -8,9 +8,9 @@ use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Sequence;
+use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\Schema\View;
-use Doctrine\DBAL\Types\Type;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
 
 /**
@@ -18,6 +18,27 @@ use DuckDb\DBAL\Platforms\DuckDBPlatform;
  */
 class DuckDBSchemaManager extends AbstractSchemaManager
 {
+    /**
+     * {@inheritDoc}
+     */
+    public function listTables(): array
+    {
+        $configuration = $this->createSchemaConfig()->toTableConfiguration();
+
+        return array_map(
+            static fn(Table $table): DuckDBTable => new DuckDBTable(
+                $table->getName(),
+                $table->getColumns(),
+                $table->getIndexes(),
+                $table->getUniqueConstraints(),
+                $table->getForeignKeys(),
+                $table->getOptions(),
+                $configuration,
+            ),
+            parent::listTables(),
+        );
+    }
+
     public function listSchemaNames(): array
     {
         return $this->connection->fetchFirstColumn(
@@ -115,7 +136,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
             $dbType = trim(substr($dbType, 0, $parenPosition));
         }
 
-        $type = $this->platform->getDoctrineTypeMapping($dbType);
+        $type = $this->platform->getDoctrineType($dbType);
 
         $autoincrement = (bool) ($tableColumn['autoincrement'] ?? false);
 
@@ -142,7 +163,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
             $options['comment'] = $tableColumn['comment'];
         }
 
-        return new Column($tableColumn['name'], Type::getType($type), $options);
+        return new Column($tableColumn['name'], $type, $options);
     }
 
     /**
