@@ -5,6 +5,7 @@ namespace DuckDb\DBAL\Schema;
 use Doctrine\DBAL\Result;
 use Doctrine\DBAL\Schema\AbstractSchemaManager;
 use Doctrine\DBAL\Schema\Column;
+use Doctrine\DBAL\Schema\Comparator;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Sequence;
@@ -37,6 +38,16 @@ class DuckDBSchemaManager extends AbstractSchemaManager
             ),
             parent::listTables(),
         );
+    }
+
+    public function introspectSchema(): DuckDBSchema
+    {
+        return new DuckDBSchema($this->listTables(), $this->listSequences(), $this->createSchemaConfig(), $this->listSchemaNames());
+    }
+
+    public function createComparator(): Comparator
+    {
+        return new DuckDBComparator($this->platform);
     }
 
     public function listSchemaNames(): array
