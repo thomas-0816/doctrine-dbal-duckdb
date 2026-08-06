@@ -1,6 +1,6 @@
 {
     "name": "thomas-0816/doctrine-dbal-duckdb",
-    "description": "Doctrine DBAL driver for DuckDB, powered by the PHP PDO Driver for DuckDB",
+    "description": "Doctrine DBAL for DuckDB, powered by the PHP PDO Driver for DuckDB",
     "keywords": ["doctrine", "dbal", "duckdb", "database", "analytics", "pdo"],
     "license": "MIT",
     "authors": [

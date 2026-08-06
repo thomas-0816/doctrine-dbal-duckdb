@@ -1,4 +1,4 @@
-Doctrine DBAL driver for DuckDB
+# Doctrine DBAL for DuckDB
 
 A [DuckDB](https://duckdb.org) database driver for Doctrine DBAL powered by the DuckDB PDO Driver.
 
@@ -20,7 +20,7 @@ Install and setup [pdo_duckdb](https://github.com/thomas-0816/pdo-duckdb-php) da
 pie install thomas-0816/pdo-duckdb-php
 ```
 
-Install and setup DuckDB driver for Doctrine:
+Install and setup Doctrine DBAL for DuckDB:
 
 ```bash
 composer require thomas-0816/doctrine-dbal-duckdb
@@ -36,7 +36,7 @@ DuckDB extensions work the same way as they do in DuckDB CLI.
 
 ## Configuration
 
-Work in progress
+Work in progress ...
 
 ## Performance
 
