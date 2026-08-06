@@ -3,6 +3,7 @@
 namespace DuckDb\DBAL\Platforms;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception\InvalidArgumentException;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Platforms\DateIntervalUnit;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
@@ -13,6 +14,7 @@ use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Name\UnquotedIdentifierFolding;
 use Doctrine\DBAL\Schema\Sequence;
+use Doctrine\DBAL\Schema\SchemaDiff;
 use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\SQL\Builder\DefaultSelectSQLBuilder;
 use Doctrine\DBAL\SQL\Builder\SelectSQLBuilder;
@@ -21,6 +23,7 @@ use Doctrine\DBAL\Types\Type;
 use Doctrine\Deprecations\Deprecation;
 use DuckDb\DBAL\Platforms\DuckDB\DuckDBMetadataProvider;
 use DuckDb\DBAL\Platforms\Keywords\DuckDBKeywords;
+use DuckDb\DBAL\Schema\DuckDBSchemaDiff;
 use DuckDb\DBAL\Schema\DuckDBType;
 use DuckDb\DBAL\Schema\DuckDBSchemaManager;
 
@@ -366,6 +369,18 @@ class DuckDBPlatform extends AbstractPlatform
         }
 
         return parent::getDropIndexSQL($name, $table);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getAlterSchemaSQL(SchemaDiff $diff): array
+    {
+        if (! $diff instanceof DuckDBSchemaDiff) {
+            throw new InvalidArgumentException('Expected DuckDBSchemaDiff, got ' . $diff::class);
+        }
+
+        return array_merge(parent::getAlterSchemaSQL($diff), $diff->getAdditionalSqlChanges());
     }
 
     /**
