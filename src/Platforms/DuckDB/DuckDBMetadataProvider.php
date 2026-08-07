@@ -128,7 +128,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
                 // detail and not reported, so it does not produce a default change diff.
                 ->setAutoincrement($autoincrement)
                 ->setDefaultValue($autoincrement ? null : $this->parseDefaultExpression($row['column_default']))
-                ->setComment($row['comment']);
+                ->setComment($row['comment'] ?: '');
 
             yield new TableColumnMetadataRow($row['schema_name'], $row['table_name'], $editor->create());
         }
