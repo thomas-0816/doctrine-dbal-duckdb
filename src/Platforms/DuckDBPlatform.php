@@ -23,9 +23,8 @@ use Doctrine\DBAL\Types\Type;
 use Doctrine\Deprecations\Deprecation;
 use DuckDb\DBAL\Platforms\DuckDB\DuckDBMetadataProvider;
 use DuckDb\DBAL\Platforms\Keywords\DuckDBKeywords;
-use DuckDb\DBAL\Schema\DuckDBSchemaDiff;
-use DuckDb\DBAL\Schema\DuckDBType;
 use DuckDb\DBAL\Schema\DuckDBSchemaManager;
+use DuckDb\DBAL\Schema\DuckDBType;
 
 /**
  * The DuckDBPlatform class describes the specifics and dialects of the DuckDB
@@ -285,6 +284,14 @@ class DuckDBPlatform extends AbstractPlatform
         return 'VARCHAR';
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    public function getJsonTypeDeclarationSQL(array $column): string
+    {
+        return 'JSON';
+    }
+
     /** @internal The method should be only used from within the {@see AbstractSchemaManager} class hierarchy. */
     public function getListViewsSQL(string $database): string
     {
@@ -369,18 +376,6 @@ class DuckDBPlatform extends AbstractPlatform
         }
 
         return parent::getDropIndexSQL($name, $table);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function getAlterSchemaSQL(SchemaDiff $diff): array
-    {
-        if (! $diff instanceof DuckDBSchemaDiff) {
-            throw new InvalidArgumentException('Expected DuckDBSchemaDiff, got ' . $diff::class);
-        }
-
-        return array_merge(parent::getAlterSchemaSQL($diff), $diff->getAdditionalSqlChanges());
     }
 
     /**
