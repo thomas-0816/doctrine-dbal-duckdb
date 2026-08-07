@@ -6,7 +6,6 @@ use Doctrine\DBAL\Result;
 use Doctrine\DBAL\Schema\AbstractSchemaManager;
 use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\Comparator;
-use Doctrine\DBAL\Schema\ComparatorConfig;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Sequence;
@@ -195,7 +194,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
             return null;
         }
 
-        return array_values(preg_split("/'((?:[^']|'')*)',?/", $matches[1], -1, PREG_SPLIT_DELIM_CAPTURE) ?: []);
+        return array_filter(preg_split("/'((?:[^']|'')*)',?/", $matches[1], -1, PREG_SPLIT_DELIM_CAPTURE) ?: []);
     }
 
     /**
