@@ -382,6 +382,12 @@ class DuckDBPlatform extends AbstractPlatform
         return true;
     }
 
+    /** @internal The method should be only used from within the {@see AbstractPlatform} class hierarchy. */
+    public function supportsCommentOnStatement(): bool
+    {
+        return true;
+    }
+
     public function supportsSchemas(): bool
     {
         return true;
@@ -428,7 +434,8 @@ class DuckDBPlatform extends AbstractPlatform
      */
     public function getAlterTableSQL(TableDiff $diff): array
     {
-        $sql = [];
+        $sql         = [];
+        $commentsSQL = [];
         $table = $diff->getOldTable();
         $tableNameSQL = $table->getQuotedName($this);
 
@@ -448,6 +455,15 @@ class DuckDBPlatform extends AbstractPlatform
             $column['notnull'] = false;
             $isEnum = $this->isEnumColumn($column);
 
+            if (! empty($column['autoincrement'])) {
+                // DuckDB has no AUTOINCREMENT keyword, so an added auto-increment
+                // column is backed by a sequence whose nextval default is injected,
+                // mirroring _getCreateTableSQL().
+                $sequenceName = trim($table->getQuotedName($this), '"') . '_' . trim($addedColumn->getQuotedName($this), '"') . '_seq';
+                $column['default'] = 'nextval(' . $this->quoteStringLiteral($sequenceName) . ')';
+                $sql[] = 'CREATE SEQUENCE IF NOT EXISTS ' . $sequenceName;
+            }
+
             if ($isEnum) {
                 // DuckDB cannot add a CHECK constraint inline with ADD COLUMN,
                 // so the column is added as a plain VARCHAR and the enum check
@@ -466,6 +482,15 @@ class DuckDBPlatform extends AbstractPlatform
             }
             if ($notNull) {
                 $sql[] = 'ALTER TABLE ' . $tableNameSQL . ' ALTER COLUMN ' . $addedColumn->getQuotedName($this) . ' SET NOT NULL';
+            }
+
+            $comment = $addedColumn->getComment();
+            if ($comment !== '') {
+                $commentsSQL[] = $this->getCommentOnColumnSQL(
+                    $tableNameSQL,
+                    $addedColumn->getQuotedName($this),
+                    $comment,
+                );
             }
         }
         foreach ($diff->getDroppedColumns() as $droppedColumn) {
@@ -491,11 +516,19 @@ class DuckDBPlatform extends AbstractPlatform
             if ($columnDiff->hasNotNullChanged()) {
                 $sql[] = 'ALTER TABLE ' . $tableNameSQL . ' ALTER COLUMN ' . $newColumnName . ' ' . ($newColumn->getNotnull() ? 'SET' : 'DROP') . ' NOT NULL';
             }
+            if ($columnDiff->hasCommentChanged()) {
+                $commentsSQL[] = $this->getCommentOnColumnSQL(
+                    $tableNameSQL,
+                    $newColumn->getQuotedName($this),
+                    $newColumn->getComment(),
+                );
+            }
         }
 
         return array_merge(
             $this->getPreAlterTableIndexSQL($diff),
             $sql,
+            $commentsSQL,
             $this->getPostAlterTableIndexSQL($diff),
         );
     }
