@@ -3,7 +3,6 @@
 namespace DuckDb\DBAL\Platforms;
 
 use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Exception\InvalidArgumentException;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Platforms\DateIntervalUnit;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
@@ -14,7 +13,6 @@ use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Name\UnquotedIdentifierFolding;
 use Doctrine\DBAL\Schema\Sequence;
-use Doctrine\DBAL\Schema\SchemaDiff;
 use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\SQL\Builder\DefaultSelectSQLBuilder;
 use Doctrine\DBAL\SQL\Builder\SelectSQLBuilder;
@@ -290,6 +288,14 @@ class DuckDBPlatform extends AbstractPlatform
     public function getJsonTypeDeclarationSQL(array $column): string
     {
         return 'JSON';
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getGuidTypeDeclarationSQL(array $column): string
+    {
+        return 'UUID';
     }
 
     /** @internal The method should be only used from within the {@see AbstractSchemaManager} class hierarchy. */

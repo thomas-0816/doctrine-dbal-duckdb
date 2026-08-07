@@ -40,16 +40,6 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         );
     }
 
-    public function introspectSchema(): DuckDBSchema
-    {
-        return new DuckDBSchema($this->listTables(), $this->listSequences(), $this->createSchemaConfig(), $this->listSchemaNames());
-    }
-
-    public function createComparator(): Comparator
-    {
-        return new DuckDBComparator($this->platform);
-    }
-
     public function listSchemaNames(): array
     {
         return $this->connection->fetchFirstColumn(
