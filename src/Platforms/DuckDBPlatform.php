@@ -25,6 +25,7 @@ use Doctrine\Deprecations\Deprecation;
 use DuckDb\DBAL\Platforms\DuckDB\DuckDBMetadataProvider;
 use DuckDb\DBAL\Platforms\Keywords\DuckDBKeywords;
 use DuckDb\DBAL\Schema\DuckDBSchemaManager;
+use DuckDb\DBAL\Schema\DuckDBTableDiff;
 use DuckDb\DBAL\Schema\DuckDBType;
 
 /**
@@ -435,7 +436,6 @@ class DuckDBPlatform extends AbstractPlatform
     public function getAlterTableSQL(TableDiff $diff): array
     {
         $sql         = [];
-        $commentsSQL = [];
         $table = $diff->getOldTable();
         $tableNameSQL = $table->getQuotedName($this);
 
@@ -486,11 +486,7 @@ class DuckDBPlatform extends AbstractPlatform
 
             $comment = $addedColumn->getComment();
             if ($comment !== '') {
-                $commentsSQL[] = $this->getCommentOnColumnSQL(
-                    $tableNameSQL,
-                    $addedColumn->getQuotedName($this),
-                    $comment,
-                );
+                $sql[] = $this->getCommentOnColumnSQL($tableNameSQL, $addedColumn->getQuotedName($this), $comment);
             }
         }
         foreach ($diff->getDroppedColumns() as $droppedColumn) {
@@ -517,7 +513,7 @@ class DuckDBPlatform extends AbstractPlatform
                 $sql[] = 'ALTER TABLE ' . $tableNameSQL . ' ALTER COLUMN ' . $newColumnName . ' ' . ($newColumn->getNotnull() ? 'SET' : 'DROP') . ' NOT NULL';
             }
             if ($columnDiff->hasCommentChanged()) {
-                $commentsSQL[] = $this->getCommentOnColumnSQL(
+                $sql[] = $this->getCommentOnColumnSQL(
                     $tableNameSQL,
                     $newColumn->getQuotedName($this),
                     $newColumn->getComment(),
@@ -525,10 +521,13 @@ class DuckDBPlatform extends AbstractPlatform
             }
         }
 
+        if ($diff instanceof DuckDBTableDiff && $diff->getNewTable()->getComment() !== $diff->getOldTable()->getComment()) {
+            $sql[] = $this->getCommentOnTableSQL($tableNameSQL, $diff->getNewTable()->getComment());
+        }
+
         return array_merge(
             $this->getPreAlterTableIndexSQL($diff),
             $sql,
-            $commentsSQL,
             $this->getPostAlterTableIndexSQL($diff),
         );
     }
