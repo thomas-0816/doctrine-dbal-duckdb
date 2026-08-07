@@ -127,10 +127,8 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
                 // The sequence default of an auto-increment column is an implementation
                 // detail and not reported, so it does not produce a default change diff.
                 ->setAutoincrement($autoincrement)
-                ->setDefaultValue($autoincrement ? null : $this->parseDefaultExpression($row['column_default']));
-            if ($row['comment'] !== null) {
-                $editor->setComment($row['comment']);
-            }
+                ->setDefaultValue($autoincrement ? null : $this->parseDefaultExpression($row['column_default']))
+                ->setComment($row['comment']);
 
             yield new TableColumnMetadataRow($row['schema_name'], $row['table_name'], $editor->create());
         }
@@ -360,7 +358,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
 
         $sql = sprintf(
             '
-                SELECT schema_name, table_name
+                SELECT schema_name, table_name, comment
                 FROM duckdb_tables()
                 WHERE database_name = current_database() AND NOT internal
                 %s
@@ -369,7 +367,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
             $whereClause,
         );
         foreach ($this->connection->iterateAssociative($sql) as $row) {
-            yield new TableMetadataRow($row['schema_name'], $row['table_name'], []);
+            yield new TableMetadataRow($row['schema_name'], $row['table_name'], ['comment' => $row['comment']]);
         }
     }
 
