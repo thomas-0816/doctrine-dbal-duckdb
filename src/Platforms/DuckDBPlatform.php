@@ -513,11 +513,7 @@ class DuckDBPlatform extends AbstractPlatform
                 $sql[] = 'ALTER TABLE ' . $tableNameSQL . ' ALTER COLUMN ' . $newColumnName . ' ' . ($newColumn->getNotnull() ? 'SET' : 'DROP') . ' NOT NULL';
             }
             if ($columnDiff->hasCommentChanged()) {
-                $sql[] = $this->getCommentOnColumnSQL(
-                    $tableNameSQL,
-                    $newColumn->getQuotedName($this),
-                    $newColumn->getComment(),
-                );
+                $sql[] = $this->getCommentOnColumnSQL($tableNameSQL, $newColumn->getQuotedName($this), $newColumn->getComment());
             }
         }
 
