@@ -194,7 +194,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
             return null;
         }
 
-        return array_filter(preg_split("/'((?:[^']|'')*)',?/", $matches[1], -1, PREG_SPLIT_DELIM_CAPTURE) ?: []);
+        return array_values(array_filter(preg_split("/'((?:[^']|'')*)',?/", $matches[1], -1, PREG_SPLIT_DELIM_CAPTURE) ?: []));
     }
 
     /**
