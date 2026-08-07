@@ -6,12 +6,16 @@ use Doctrine\DBAL\Result;
 use Doctrine\DBAL\Schema\AbstractSchemaManager;
 use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\Comparator;
+use Doctrine\DBAL\Schema\ComparatorConfig;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\Schema\View;
+use Doctrine\DBAL\Types\StringType;
+use Doctrine\DBAL\Types\Type;
+use Doctrine\DBAL\Types\Types;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
 
 /**
@@ -49,6 +53,11 @@ class DuckDBSchemaManager extends AbstractSchemaManager
             ORDER BY schema_name
             '
         );
+    }
+
+    public function createComparator(): Comparator
+    {
+        return new DuckDBComparator($this->platform);
     }
 
     public function createForeignKey(ForeignKeyConstraint $foreignKey, string $table): void
@@ -151,20 +160,42 @@ class DuckDBSchemaManager extends AbstractSchemaManager
             'notnull'   => (bool) $tableColumn['notnull'],
             'default'   => $autoincrement ? null : ($tableColumn['dflt_value'] ?? null),
         ];
-
         if ($precision !== null) {
             $options['precision'] = $precision;
         }
-
         if ($scale !== null) {
             $options['scale'] = $scale;
         }
-
         if (isset($tableColumn['comment'])) {
             $options['comment'] = $tableColumn['comment'];
         }
+        if (isset($tableColumn['check']) && $type instanceof StringType) {
+            $values = $this->parseEnumValues((string) $tableColumn['check']);
+            if ($values !== null) {
+                $type = Type::getType(Types::ENUM);
+                $options['values'] = $values;
+            }
+        }
 
         return new Column($tableColumn['name'], $type, $options);
+    }
+
+    /**
+     * Parses the allowed values of a column-level CHECK (col IN (...)) constraint.
+     *
+     * DuckDB normalizes such a constraint to "CHECK((col IN ('a', 'b', 'c')))".
+     * Only constraints whose whole expression is an IN-list of string literals
+     * over a single column are treated as enums.
+     *
+     * @return list<string>|null
+     */
+    private function parseEnumValues(string $checkText): ?array
+    {
+        if (! preg_match('/^\([^ ]+ IN \(([^\)]+)\)/', $checkText, $matches)) {
+            return null;
+        }
+
+        return array_values(preg_split("/'((?:[^']|'')*)',?/", $matches[1], -1, PREG_SPLIT_DELIM_CAPTURE) ?: []);
     }
 
     /**
@@ -216,24 +247,33 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         $whereClause = '';
         if ($tableName !== null) {
             $params[] = $tableName;
-            $whereClause = 'AND table_name = ?';
+            $whereClause = 'AND c.table_name = ?';
         }
         $sql = sprintf(
-            '
-            SELECT schema_name,
-                table_name,
-                column_name AS name,
-                column_index AS cid,
-                data_type AS type,
-                NOT is_nullable AS notnull,
-                column_default AS dflt_value,
-                numeric_precision AS precision,
-                numeric_scale AS scale,
-                comment
-            FROM duckdb_columns()
-            WHERE database_name = current_database() AND NOT internal
+            "
+            SELECT c.schema_name,
+                c.table_name,
+                c.column_name AS name,
+                c.column_index AS cid,
+                c.data_type AS type,
+                NOT c.is_nullable AS notnull,
+                c.column_default AS dflt_value,
+                c.numeric_precision AS precision,
+                c.numeric_scale AS scale,
+                c.comment,
+                chk.expression AS check
+            FROM duckdb_columns() c
+            LEFT JOIN (
+                SELECT table_name, constraint_column_names[1] AS column_name, min(expression) AS expression
+                FROM duckdb_constraints()
+                WHERE database_name = current_database() AND NOT internal
+                    AND constraint_type = 'CHECK'
+                    AND array_length(constraint_column_names) = 1
+                GROUP BY table_name, constraint_column_names[1]
+            ) chk ON chk.table_name = c.table_name AND chk.column_name = c.column_name
+            WHERE c.database_name = current_database() AND NOT c.internal
             %s
-            ORDER BY table_name, column_index',
+            ORDER BY c.table_name, c.column_index",
             $whereClause,
         );
 
@@ -297,12 +337,12 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         }
         $sql = sprintf(
             "
-            SELECT schema_name, table_name, index_name AS key_name, false AS \"primary\", NOT is_unique AS non_unique, expressions::VARCHAR[] AS column_names
+            SELECT schema_name, table_name, index_name AS key_name, false AS primary, NOT is_unique AS non_unique, expressions::VARCHAR[] AS column_names
             FROM duckdb_indexes()
             WHERE database_name = current_database() AND NOT is_primary
             %s
             UNION ALL
-            SELECT schema_name, table_name, 'primary' AS key_name, true AS \"primary\", false AS non_unique, constraint_column_names AS column_names
+            SELECT schema_name, table_name, 'primary' AS key_name, true AS primary, false AS non_unique, constraint_column_names AS column_names
             FROM duckdb_constraints()
             WHERE database_name = current_database() AND constraint_type = 'PRIMARY KEY'
             %s
@@ -329,7 +369,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
                 constraint_name,
                 constraint_column_names AS local,
                 referenced_table AS foreignTable,
-                referenced_column_names AS \"foreign\"
+                referenced_column_names AS foreign
             FROM duckdb_constraints()
             WHERE database_name = current_database() AND constraint_type = 'FOREIGN KEY'
             %s
@@ -345,6 +385,26 @@ class DuckDBSchemaManager extends AbstractSchemaManager
      */
     protected function fetchTableOptionsByTable(string $databaseName, ?string $tableName = null): array
     {
-        return [];
+        $params = [];
+        $whereClause = '';
+        if ($tableName !== null) {
+            $params[] = $tableName;
+            $whereClause = 'AND table_name = ?';
+        }
+        $sql = sprintf(
+            '
+            SELECT schema_name, table_name, comment
+            FROM duckdb_tables()
+            WHERE database_name = current_database() AND NOT internal
+            %s',
+            $whereClause,
+        );
+
+        $tableOptions = [];
+        foreach ($this->connection->iterateAssociative($sql, $params) as $row) {
+            $tableOptions[$this->_getPortableTableDefinition($row)] = ['comment' => $row['comment']];
+        }
+
+        return $tableOptions;
     }
 }
