@@ -3,6 +3,7 @@
 namespace DuckDb\DBAL\Platforms;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Platforms\DateIntervalUnit;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
@@ -17,7 +18,9 @@ use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\SQL\Builder\DefaultSelectSQLBuilder;
 use Doctrine\DBAL\SQL\Builder\SelectSQLBuilder;
 use Doctrine\DBAL\TransactionIsolationLevel;
+use Doctrine\DBAL\Types\EnumType;
 use Doctrine\DBAL\Types\Type;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Deprecations\Deprecation;
 use DuckDb\DBAL\Platforms\DuckDB\DuckDBMetadataProvider;
 use DuckDb\DBAL\Platforms\Keywords\DuckDBKeywords;
@@ -298,6 +301,42 @@ class DuckDBPlatform extends AbstractPlatform
         return 'UUID';
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    public function getEnumDeclarationSQL(array $column): string
+    {
+        if (! isset($column['name']) || ! isset($column['values']) || ! is_array($column['values']) || $column['values'] === []) {
+            throw ColumnValuesRequired::new($this, 'ENUM');
+        }
+
+        return 'VARCHAR ' . $this->getEnumCheckConstraintSQL($column['name'], array_values($column['values']));
+    }
+
+    /**
+     * @param array<string, mixed> $column
+     */
+    private function isEnumColumn(array $column): bool
+    {
+        return ($column['type'] ?? null) instanceof EnumType
+            && isset($column['values'])
+            && is_array($column['values'])
+            && $column['values'] !== [];
+    }
+
+    /**
+     * @param list<string> $values
+     */
+    private function getEnumCheckConstraintSQL(string $name, array $values): string
+    {
+        $quotedValues = array_map(
+            fn(string $value): string => $this->quoteStringLiteral($value),
+            array_values($values),
+        );
+
+        return 'CHECK (' . $name . ' IN (' . implode(', ', $quotedValues) . '))';
+    }
+
     /** @internal The method should be only used from within the {@see AbstractSchemaManager} class hierarchy. */
     public function getListViewsSQL(string $database): string
     {
@@ -407,11 +446,24 @@ class DuckDBPlatform extends AbstractPlatform
             $column = $addedColumn->toArray();
             $notNull        = ! empty($column['notnull']);
             $column['notnull'] = false;
+            $isEnum = $this->isEnumColumn($column);
+
+            if ($isEnum) {
+                // DuckDB cannot add a CHECK constraint inline with ADD COLUMN,
+                // so the column is added as a plain VARCHAR and the enum check
+                // constraint is added with a separate statement.
+                $column['type'] = Type::getType(Types::STRING);
+                unset($column['values']); // @phpstan-ignore-line
+            }
 
             $sql[] = 'ALTER TABLE ' . $tableNameSQL . ' ADD COLUMN ' . $this->getColumnDeclarationSQL(
                 $addedColumn->getQuotedName($this),
                 $column,
             );
+            if ($isEnum) {
+                $sql[] = 'ALTER TABLE ' . $tableNameSQL . ' ADD CONSTRAINT '
+                    . $this->getEnumCheckConstraintSQL($addedColumn->getQuotedName($this), $addedColumn->getValues());
+            }
             if ($notNull) {
                 $sql[] = 'ALTER TABLE ' . $tableNameSQL . ' ALTER COLUMN ' . $addedColumn->getQuotedName($this) . ' SET NOT NULL';
             }
@@ -450,7 +502,8 @@ class DuckDBPlatform extends AbstractPlatform
 
     private function getTypeSQLDeclaration(Column $column): string
     {
-        $type            = $column->getType();
+        $type = $column->getType();
+
         $columnDefinition = $column->toArray();
         $columnDefinition['autoincrement'] = false;
 
