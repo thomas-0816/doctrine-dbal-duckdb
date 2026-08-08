@@ -110,9 +110,18 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
         );
         foreach ($this->connection->iterateAssociative($sql) as $row) {
             $typeName = $this->getBaseTypeName($row['data_type']);
+            $autoincrement = str_contains($row['column_default'] ?? '', 'nextval(');
+
             $editor = Column::editor()
                 ->setQuotedName($row['column_name'])
-                ->setType($this->platform->getDoctrineType($typeName));
+                ->setType($this->platform->getDoctrineType($typeName))
+                ->setNotNull(! $row['is_nullable'])
+                // The sequence default of an auto-increment column is an implementation
+                // detail and not reported, so it does not produce a default change diff.
+                ->setAutoincrement($autoincrement)
+                ->setDefaultValue($autoincrement ? null : $this->parseDefaultExpression($row['column_default']))
+                ->setComment($row['comment'] ?: '');
+
             if ($typeName === 'decimal' || $typeName === 'numeric') {
                 if ($row['numeric_precision'] !== null) {
                     $editor->setPrecision((int) $row['numeric_precision']);
@@ -121,14 +130,9 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
                     $editor->setScale((int) $row['numeric_scale']);
                 }
             }
-            $autoincrement = str_contains($row['column_default'] ?? '', 'nextval(');
-            $editor
-                ->setNotNull(! $row['is_nullable'])
-                // The sequence default of an auto-increment column is an implementation
-                // detail and not reported, so it does not produce a default change diff.
-                ->setAutoincrement($autoincrement)
-                ->setDefaultValue($autoincrement ? null : $this->parseDefaultExpression($row['column_default']))
-                ->setComment($row['comment'] ?: '');
+            if ($typeName === 'enum') {
+                $editor->setValues($this->parseEnumValues((string) $row['data_type']));
+            }
 
             yield new TableColumnMetadataRow($row['schema_name'], $row['table_name'], $editor->create());
         }
@@ -143,6 +147,14 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
         }
 
         return $typeName;
+    }
+
+    /** @return list<string> */
+    private function parseEnumValues(string $expression): array
+    {
+        preg_match_all("/'([^']*(?:''[^']*)*)'/", $expression, $matches);
+
+        return array_filter($matches[1]);
     }
 
     /**
