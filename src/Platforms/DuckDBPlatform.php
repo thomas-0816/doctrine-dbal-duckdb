@@ -20,7 +20,6 @@ use Doctrine\DBAL\SQL\Builder\SelectSQLBuilder;
 use Doctrine\DBAL\TransactionIsolationLevel;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\Deprecations\Deprecation;
-use DuckDb\DBAL\Exception\InvalidColumnType\DuckDBFieldsRequired;
 use DuckDb\DBAL\Platforms\DuckDB\DuckDBMetadataProvider;
 use DuckDb\DBAL\Platforms\Keywords\DuckDBKeywords;
 use DuckDb\DBAL\Schema\DuckDBSchemaManager;
@@ -313,95 +312,6 @@ class DuckDBPlatform extends AbstractPlatform
         $quotedValues = array_map(fn(string $value): string => $this->quoteStringLiteral($value), array_values($column['values']));
 
         return 'ENUM(' . implode(', ', $quotedValues) . ')';
-    }
-
-    /**
-     * The fields of the struct are passed either as the column option
-     * "fields" or as a fallback via the $fields argument. The fields are a
-     * single string such as "id integer, name varchar" so that nested
-     * structs are naturally supported.
-     *
-     * @param array<string, mixed> $column
-     */
-    public function getStructDeclarationSQL(array $column, string $fields = ''): string
-    {
-        if ($fields === '') {
-            $fields = isset($column['fields']) ? (string) $column['fields'] : '';
-        }
-
-        $fields = trim($fields);
-        if ($fields === '') {
-            throw DuckDBFieldsRequired::new($this, 'STRUCT');
-        }
-
-        return 'STRUCT(' . $fields . ')';
-    }
-
-    /**
-     * The fields of the union are passed either as the column option "fields"
-     * or as a fallback via the $fields argument, in the same way as for a
-     * struct. The fields are a single string such as "a integer, b varchar".
-     *
-     * @param array<string, mixed> $column
-     */
-    public function getUnionDeclarationSQL(array $column, string $fields = ''): string
-    {
-        if ($fields === '') {
-            $fields = isset($column['fields']) ? (string) $column['fields'] : '';
-        }
-
-        $fields = trim($fields);
-        if ($fields === '') {
-            throw DuckDBFieldsRequired::new($this, 'UNION');
-        }
-
-        return 'UNION(' . $fields . ')';
-    }
-
-    /**
-     * The key and value types of the map are passed either as the column
-     * option "fields" or as a fallback via the $fields argument. The fields
-     * are a single string such as "integer, varchar".
-     *
-     * @param array<string, mixed> $column
-     */
-    public function getMapDeclarationSQL(array $column, string $fields = ''): string
-    {
-        if ($fields === '') {
-            $fields = isset($column['fields']) ? (string) $column['fields'] : '';
-        }
-
-        $fields = trim($fields);
-        if ($fields === '') {
-            throw DuckDBFieldsRequired::new($this, 'MAP');
-        }
-
-        return 'MAP(' . $fields . ')';
-    }
-
-    public function getGeometryDeclarationSQL(): string
-    {
-        return 'GEOMETRY';
-    }
-
-    public function getVariantDeclarationSQL(): string
-    {
-        return 'VARIANT';
-    }
-
-    public function getBignumDeclarationSQL(): string
-    {
-        return 'BIGNUM';
-    }
-
-    public function getHugeintDeclarationSQL(): string
-    {
-        return 'HUGEINT';
-    }
-
-    public function getUhugeintDeclarationSQL(): string
-    {
-        return 'UHUGEINT';
     }
 
     /** @internal The method should be only used from within the {@see AbstractSchemaManager} class hierarchy. */
