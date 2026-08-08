@@ -13,9 +13,6 @@ use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\Schema\View;
-use Doctrine\DBAL\Types\StringType;
-use Doctrine\DBAL\Types\Type;
-use Doctrine\DBAL\Types\Types;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
 
 /**
@@ -157,7 +154,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
             'autoincrement' => $autoincrement,
             'unsigned'  => $unsigned,
             'notnull'   => (bool) $tableColumn['notnull'],
-            'default'   => $autoincrement ? null : ($tableColumn['dflt_value'] ?? null),
+            'default'   => $autoincrement ? null : $this->parseDefaultExpression($tableColumn['dflt_value'] ?? null),
         ];
         if ($precision !== null) {
             $options['precision'] = $precision;
@@ -169,33 +166,25 @@ class DuckDBSchemaManager extends AbstractSchemaManager
             $options['comment'] = $tableColumn['comment'];
         }
 
-        if (isset($tableColumn['check']) && $type instanceof StringType) {
-            $values = $this->parseEnumValues((string) $tableColumn['check']);
-            if ($values !== null) {
-                $type = Type::getType(Types::ENUM);
-                $options['values'] = $values;
-            }
-        }
-
         return new Column($tableColumn['name'], $type, $options);
     }
 
     /**
-     * Parses the allowed values of a column-level CHECK (col IN (...)) constraint.
-     *
-     * DuckDB normalizes such a constraint to "CHECK((col IN ('a', 'b', 'c')))".
-     * Only constraints whose whole expression is an IN-list of string literals
-     * over a single column are treated as enums.
-     *
-     * @return list<string>|null
+     * Parses a default value expression as given by DuckDB.
      */
-    private function parseEnumValues(string $checkText): ?array
+    private function parseDefaultExpression(?string $expression): mixed
     {
-        if (! preg_match('/^\([^ ]+ IN \(([^\)]+)\)/', $checkText, $matches)) {
+        if ($expression === null || $expression === 'NULL') {
             return null;
         }
+        if ($expression === 'true') {
+            return true;
+        }
+        if ($expression === 'false') {
+            return false;
+        }
 
-        return array_values(array_filter(preg_split("/'((?:[^']|'')*)',?/", $matches[1], -1, PREG_SPLIT_DELIM_CAPTURE) ?: []));
+        return trim($expression, "'");
     }
 
     /**
@@ -247,33 +236,24 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         $whereClause = '';
         if ($tableName !== null) {
             $params[] = $tableName;
-            $whereClause = 'AND c.table_name = ?';
+            $whereClause = 'AND table_name = ?';
         }
         $sql = sprintf(
             "
-            SELECT c.schema_name,
-                c.table_name,
-                c.column_name AS name,
-                c.column_index AS cid,
-                c.data_type AS type,
-                NOT c.is_nullable AS notnull,
-                c.column_default AS dflt_value,
-                c.numeric_precision AS precision,
-                c.numeric_scale AS scale,
-                c.comment,
-                chk.expression AS check
-            FROM duckdb_columns() c
-            LEFT JOIN (
-                SELECT table_name, constraint_column_names[1] AS column_name, min(expression) AS expression
-                FROM duckdb_constraints()
-                WHERE database_name = current_database() AND NOT internal
-                    AND constraint_type = 'CHECK'
-                    AND array_length(constraint_column_names) = 1
-                GROUP BY table_name, constraint_column_names[1]
-            ) chk ON chk.table_name = c.table_name AND chk.column_name = c.column_name
-            WHERE c.database_name = current_database() AND NOT c.internal
+            SELECT schema_name,
+                table_name,
+                column_name AS name,
+                column_index AS cid,
+                data_type AS type,
+                NOT is_nullable AS notnull,
+                column_default AS dflt_value,
+                numeric_precision AS precision,
+                numeric_scale AS scale,
+                comment
+            FROM duckdb_columns()
+            WHERE database_name = current_database() AND NOT internal
             %s
-            ORDER BY c.table_name, c.column_index",
+            ORDER BY table_name, column_index",
             $whereClause,
         );
 
