@@ -154,7 +154,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
     {
         preg_match_all("/'([^']*(?:''[^']*)*)'/", $expression, $matches);
 
-        return array_filter($matches[1]);
+        return array_values(array_filter($matches[1]));
     }
 
     /**

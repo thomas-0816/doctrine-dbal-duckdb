@@ -8,7 +8,7 @@ use Doctrine\DBAL\Schema\Schema;
  * A {@see Schema} whose tables are {@see DuckDBTable}s that tolerate
  * unregistered DuckDB type names.
  */
-final class DuckDBSchema extends Schema
+final class DuckDBSchema extends Schema // @phpstan-ignore-line
 {
     public function createTable(string $name): DuckDBTable
     {
