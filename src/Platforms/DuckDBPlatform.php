@@ -23,17 +23,9 @@ use Doctrine\Deprecations\Deprecation;
 use DuckDb\DBAL\Exception\InvalidColumnType\DuckDBFieldsRequired;
 use DuckDb\DBAL\Platforms\DuckDB\DuckDBMetadataProvider;
 use DuckDb\DBAL\Platforms\Keywords\DuckDBKeywords;
-use DuckDb\DBAL\Schema\Types\DuckDBBignumType;
-use DuckDb\DBAL\Schema\Types\DuckDBGeometryType;
-use DuckDb\DBAL\Schema\Types\DuckDBHugeintType;
-use DuckDb\DBAL\Schema\Types\DuckDBUHugeintType;
 use DuckDb\DBAL\Schema\DuckDBSchemaManager;
-use DuckDb\DBAL\Schema\Types\DuckDBStructType;
-use DuckDb\DBAL\Schema\Types\DuckDBVariantType;
 use DuckDb\DBAL\Schema\DuckDBTableDiff;
-use DuckDb\DBAL\Schema\Types\DuckDBType;
-use DuckDb\DBAL\Schema\Types\DuckDBMapType;
-use DuckDb\DBAL\Schema\Types\DuckDBUnionType;
+use DuckDb\DBAL\Schema\DuckDBType;
 
 /**
  * The DuckDBPlatform class describes the specifics and dialects of the DuckDB
@@ -47,23 +39,6 @@ class DuckDBPlatform extends AbstractPlatform
     public function __construct()
     {
         parent::__construct(UnquotedIdentifierFolding::NONE);
-
-        $duckDbTypes = [
-            'struct'   => DuckDBStructType::class,
-            'geometry' => DuckDBGeometryType::class,
-            'variant'  => DuckDBVariantType::class,
-            'bignum'   => DuckDBBignumType::class,
-            'union'    => DuckDBUnionType::class,
-            'map'      => DuckDBMapType::class,
-            'hugeint'  => DuckDBHugeintType::class,
-            'uhugeint' => DuckDBUHugeintType::class,
-        ];
-
-        foreach ($duckDbTypes as $name => $class) {
-            if (! Type::hasType($name)) {
-                Type::addType($name, $class);
-            }
-        }
     }
 
     public function getCreateDatabaseSQL(string $name): string
@@ -761,33 +736,6 @@ class DuckDBPlatform extends AbstractPlatform
             $typeName = substr($typeName, 0, $parenPosition);
         }
 
-        if ($typeName === 'struct') {
-            $fields = '';
-            if (preg_match('/^STRUCT\((.*)\)$/i', trim($dbType), $matches)) {
-                $fields = trim($matches[1]);
-            }
-
-            return new DuckDBStructType($fields);
-        }
-
-        if ($typeName === 'union') {
-            $fields = '';
-            if (preg_match('/^UNION\((.*)\)$/i', trim($dbType), $matches)) {
-                $fields = trim($matches[1]);
-            }
-
-            return new DuckDBUnionType($fields);
-        }
-
-        if ($typeName === 'map') {
-            $fields = '';
-            if (preg_match('/^MAP\((.*)\)$/i', trim($dbType), $matches)) {
-                $fields = trim($matches[1]);
-            }
-
-            return new DuckDBMapType($fields);
-        }
-
         if ($this->hasDoctrineTypeMappingFor($typeName)) {
             return Type::getType($this->getDoctrineTypeMapping($typeName));
         }
@@ -807,9 +755,9 @@ class DuckDBPlatform extends AbstractPlatform
             'uinteger'   => 'integer',
             'bigint'     => 'bigint',
             'ubigint'    => 'string',
-            'hugeint'    => 'hugeint',
-            'uhugeint'   => 'uhugeint',
-            'bignum'     => 'bignum',
+            'hugeint'    => 'string',
+            'uhugeint'   => 'string',
+            'bignum'     => 'string',
             'double'     => 'float',
             'float'      => 'smallfloat',
             'real'       => 'smallfloat',
@@ -826,13 +774,13 @@ class DuckDBPlatform extends AbstractPlatform
             'varchar'    => 'string',
             'bit'        => 'string',
             'bitstring'  => 'string',
-            'geometry'   => 'geometry',
+            'geometry'   => 'string',
             'date'       => 'date',
             'datetime'   => 'datetime',
             'interval'   => 'dateinterval',
             'json'       => 'json',
-            'struct'     => 'struct',
-            'variant'    => 'variant',
+            'struct'     => 'json',
+            'variant'    => 'json',
             'time'       => 'time',
             'time with time zone' => 'time',
             'time without time zone' => 'time',
