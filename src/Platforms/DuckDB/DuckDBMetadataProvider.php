@@ -114,7 +114,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
 
             $editor = Column::editor()
                 ->setQuotedName($row['column_name'])
-                ->setType($this->platform->getDoctrineType($typeName))
+                ->setType($this->platform->getDoctrineType((string) $row['data_type']))
                 ->setNotNull(! $row['is_nullable'])
                 // The sequence default of an auto-increment column is an implementation
                 // detail and not reported, so it does not produce a default change diff.
