@@ -23,6 +23,11 @@ final class DuckDBTable extends Table /** @phpstan-ignore-line */
             $type = new DuckDBType($type);
         }
 
+        if ($type instanceof DuckDBStructType && isset($options['fields'])) {
+            $type = new DuckDBStructType((string) $options['fields']);
+            unset($options['fields']);
+        }
+
         $column = new Column($name, $type, $options);
 
         $this->_addColumn($column);

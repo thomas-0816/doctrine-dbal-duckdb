@@ -23,6 +23,7 @@ use Doctrine\Deprecations\Deprecation;
 use DuckDb\DBAL\Exception\InvalidColumnType\DuckDBFieldsRequired;
 use DuckDb\DBAL\Platforms\DuckDB\DuckDBMetadataProvider;
 use DuckDb\DBAL\Platforms\Keywords\DuckDBKeywords;
+use DuckDb\DBAL\Schema\DuckDBGeometryType;
 use DuckDb\DBAL\Schema\DuckDBSchemaManager;
 use DuckDb\DBAL\Schema\DuckDBStructType;
 use DuckDb\DBAL\Schema\DuckDBTableDiff;
@@ -43,6 +44,9 @@ class DuckDBPlatform extends AbstractPlatform
 
         if (! Type::hasType('struct')) {
             Type::addType('struct', DuckDBStructType::class);
+        }
+        if (! Type::hasType('geometry')) {
+            Type::addType('geometry', DuckDBGeometryType::class);
         }
     }
 
@@ -340,6 +344,11 @@ class DuckDBPlatform extends AbstractPlatform
         }
 
         return 'STRUCT(' . $fields . ')';
+    }
+
+    public function getGeometryDeclarationSQL(): string
+    {
+        return 'GEOMETRY';
     }
 
     /** @internal The method should be only used from within the {@see AbstractSchemaManager} class hierarchy. */
@@ -721,7 +730,7 @@ class DuckDBPlatform extends AbstractPlatform
             'varchar'    => 'string',
             'bit'        => 'string',
             'bitstring'  => 'string',
-            'geometry'   => 'string',
+            'geometry'   => 'geometry',
             'date'       => 'date',
             'datetime'   => 'datetime',
             'interval'   => 'dateinterval',
