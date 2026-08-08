@@ -1,6 +1,6 @@
 <?php
 
-namespace DuckDb\DBAL\Schema;
+namespace DuckDb\DBAL\Schema\Types;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
@@ -30,10 +30,7 @@ final class DuckDBStructType extends Type
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
         if (! $platform instanceof DuckDBPlatform) {
-            throw new LogicException(sprintf(
-                'DuckDBStructType is only supported on the DuckDB platform, %s given.',
-                get_debug_type($platform),
-            ));
+            throw new LogicException(sprintf('Struct is only supported on the DuckDB platform, %s given.', get_debug_type($platform)));
         }
 
         return $platform->getStructDeclarationSQL($column, $this->fields);
