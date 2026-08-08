@@ -147,7 +147,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         $type = $this->platform->getDoctrineType($tableColumn['type']);
 
         $autoincrement = (bool) ($tableColumn['autoincrement'] ?? false);
-
+        $unsigned = (bool) preg_match('/^u(?:tinyint|smallint|integer|bigint|hugeint)$/', strtolower($tableColumn['type']));
         $precision = isset($tableColumn['precision']) ? (int) $tableColumn['precision'] : null;
         $scale     = isset($tableColumn['scale']) ? (int) $tableColumn['scale'] : null;
 
@@ -155,6 +155,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
             // The sequence default of an auto-increment column is an implementation
             // detail and not reported, so it does not produce a default change diff.
             'autoincrement' => $autoincrement,
+            'unsigned'  => $unsigned,
             'notnull'   => (bool) $tableColumn['notnull'],
             'default'   => $autoincrement ? null : ($tableColumn['dflt_value'] ?? null),
         ];
