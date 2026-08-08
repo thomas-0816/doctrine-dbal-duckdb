@@ -8,6 +8,7 @@ use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\Comparator;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Index;
+use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\TableDiff;
@@ -57,6 +58,11 @@ class DuckDBSchemaManager extends AbstractSchemaManager
     public function createComparator(): Comparator
     {
         return new DuckDBComparator($this->platform);
+    }
+
+    public function introspectSchema(): Schema
+    {
+        return new DuckDBSchema($this->listTables(), $this->listSequences(), $this->createSchemaConfig(), $this->listSchemaNames());
     }
 
     public function createForeignKey(ForeignKeyConstraint $foreignKey, string $table): void
@@ -138,14 +144,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
      */
     protected function _getPortableTableColumnDefinition(array $tableColumn): Column
     {
-        $dbType = strtolower($tableColumn['type']);
-
-        $parenPosition = strpos($dbType, '(');
-        if ($parenPosition !== false) {
-            $dbType = trim(substr($dbType, 0, $parenPosition));
-        }
-
-        $type = $this->platform->getDoctrineType($dbType);
+        $type = $this->platform->getDoctrineType($tableColumn['type']);
 
         $autoincrement = (bool) ($tableColumn['autoincrement'] ?? false);
 
@@ -168,6 +167,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         if (isset($tableColumn['comment'])) {
             $options['comment'] = $tableColumn['comment'];
         }
+
         if (isset($tableColumn['check']) && $type instanceof StringType) {
             $values = $this->parseEnumValues((string) $tableColumn['check']);
             if ($values !== null) {
