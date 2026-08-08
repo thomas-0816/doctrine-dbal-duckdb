@@ -18,9 +18,7 @@ use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\SQL\Builder\DefaultSelectSQLBuilder;
 use Doctrine\DBAL\SQL\Builder\SelectSQLBuilder;
 use Doctrine\DBAL\TransactionIsolationLevel;
-use Doctrine\DBAL\Types\EnumType;
 use Doctrine\DBAL\Types\Type;
-use Doctrine\DBAL\Types\Types;
 use Doctrine\Deprecations\Deprecation;
 use DuckDb\DBAL\Platforms\DuckDB\DuckDBMetadataProvider;
 use DuckDb\DBAL\Platforms\Keywords\DuckDBKeywords;
@@ -307,35 +305,13 @@ class DuckDBPlatform extends AbstractPlatform
      */
     public function getEnumDeclarationSQL(array $column): string
     {
-        if (! isset($column['name']) || ! isset($column['values']) || ! is_array($column['values']) || $column['values'] === []) {
+        if (! isset($column['values']) || ! is_array($column['values']) || $column['values'] === []) {
             throw ColumnValuesRequired::new($this, 'ENUM');
         }
 
-        return 'VARCHAR ' . $this->getEnumCheckConstraintSQL($column['name'], array_values($column['values']));
-    }
+        $quotedValues = array_map(fn(string $value): string => $this->quoteStringLiteral($value), array_values($column['values']));
 
-    /**
-     * @param array<string, mixed> $column
-     */
-    private function isEnumColumn(array $column): bool
-    {
-        return ($column['type'] ?? null) instanceof EnumType
-            && isset($column['values'])
-            && is_array($column['values'])
-            && $column['values'] !== [];
-    }
-
-    /**
-     * @param list<string> $values
-     */
-    private function getEnumCheckConstraintSQL(string $name, array $values): string
-    {
-        $quotedValues = array_map(
-            fn(string $value): string => $this->quoteStringLiteral($value),
-            array_values($values),
-        );
-
-        return 'CHECK (' . $name . ' IN (' . implode(', ', $quotedValues) . '))';
+        return 'ENUM(' . implode(', ', $quotedValues) . ')';
     }
 
     /** @internal The method should be only used from within the {@see AbstractSchemaManager} class hierarchy. */
@@ -453,7 +429,6 @@ class DuckDBPlatform extends AbstractPlatform
             $column = $addedColumn->toArray();
             $notNull        = ! empty($column['notnull']);
             $column['notnull'] = false;
-            $isEnum = $this->isEnumColumn($column);
 
             if (! empty($column['autoincrement'])) {
                 // DuckDB has no AUTOINCREMENT keyword, so an added auto-increment
@@ -464,22 +439,10 @@ class DuckDBPlatform extends AbstractPlatform
                 $sql[] = 'CREATE SEQUENCE IF NOT EXISTS ' . $sequenceName;
             }
 
-            if ($isEnum) {
-                // DuckDB cannot add a CHECK constraint inline with ADD COLUMN,
-                // so the column is added as a plain VARCHAR and the enum check
-                // constraint is added with a separate statement.
-                $column['type'] = Type::getType(Types::STRING);
-                unset($column['values']); // @phpstan-ignore-line
-            }
-
             $sql[] = 'ALTER TABLE ' . $tableNameSQL . ' ADD COLUMN ' . $this->getColumnDeclarationSQL(
                 $addedColumn->getQuotedName($this),
                 $column,
             );
-            if ($isEnum) {
-                $sql[] = 'ALTER TABLE ' . $tableNameSQL . ' ADD CONSTRAINT '
-                    . $this->getEnumCheckConstraintSQL($addedColumn->getQuotedName($this), $addedColumn->getValues());
-            }
             if ($notNull) {
                 $sql[] = 'ALTER TABLE ' . $tableNameSQL . ' ALTER COLUMN ' . $addedColumn->getQuotedName($this) . ' SET NOT NULL';
             }
@@ -684,7 +647,7 @@ class DuckDBPlatform extends AbstractPlatform
             return Type::getType($this->getDoctrineTypeMapping($typeName));
         }
 
-        return new DuckDBType($typeName);
+        return new DuckDBType(strtolower($dbType));
     }
 
     protected function initializeDoctrineTypeMappings(): void
@@ -732,6 +695,7 @@ class DuckDBPlatform extends AbstractPlatform
             'timestamp without time zone' => 'datetime',
             'timestamptz' => 'datetimetz',
             'uuid'       => 'guid',
+            'enum'       => 'enum',
         ];
     }
 
