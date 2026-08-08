@@ -2,9 +2,7 @@
 
 namespace DuckDb\DBAL\Tests;
 
-use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\DriverManager;
-use Doctrine\DBAL\Logging\Middleware;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\BlobType;
 use Doctrine\DBAL\Types\EnumType;
@@ -15,8 +13,6 @@ use DuckDb\DBAL\Schema\DuckDBTable;
 use DuckDb\DBAL\Schema\DuckDBType;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\AbstractLogger;
-use Stringable;
 
 final class DuckDBSchemaTest extends TestCase
 {
@@ -257,34 +253,5 @@ final class DuckDBSchemaTest extends TestCase
             "COMMENT ON COLUMN t3.ia IS 'foo'",
             'DROP TABLE t2',
         ], $connection->getDatabasePlatform()->getAlterSchemaSQL($diff));
-
-        /*
-        $fromSchema = $schemaManager->introspectSchema();
-        $renamedSchema = clone $fromSchema;
-        $fromSchema->dropTable('t2');
-        $fromSchema->renameTable('t1', 't2');
-        $fromSchema->getTable('t2')->getColumn('ia')->setNotnull(true);
-        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $renamedAndChangedSchema);
-        Assert::assertSame([
-            'DROP TABLE t1',
-            'DROP INDEX UNIQ_C25DFF8D6962CCB5',
-            'ALTER TABLE t2 ALTER COLUMN ia SET NOT NULL',
-        ], $connection->getDatabasePlatform()->getAlterSchemaSQL($diff));
-        */
-    }
-
-    private function setStdOutLogger(Configuration $config): void
-    {
-        $logger = new class extends AbstractLogger {
-            public function log($level, string|Stringable $message, array $context = []): void
-            {
-                foreach ($context as $key => $value) {
-                    $message = str_replace('{' . $key . '}', json_encode($value), $message);
-                }
-                fwrite(STDOUT, $message . PHP_EOL);
-            }
-        };
-
-        $config->setMiddlewares([new Middleware($logger)]);
     }
 }
