@@ -11,6 +11,7 @@ use Doctrine\DBAL\Platforms\Keywords\KeywordList;
 use Doctrine\DBAL\Platforms\TrimMode;
 use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
+use Doctrine\DBAL\Schema\Identifier;
 use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Name\UnquotedIdentifierFolding;
 use Doctrine\DBAL\Schema\Sequence;
@@ -363,6 +364,17 @@ class DuckDBPlatform extends AbstractPlatform
     public function supportsCommentOnStatement(): bool
     {
         return true;
+    }
+
+    protected function getCommentOnTableSQL(string $tableName, ?string $comment): string
+    {
+        $tableName = new Identifier($tableName);
+
+        return sprintf(
+            'COMMENT ON TABLE %s IS %s',
+            $tableName->getQuotedName($this),
+            $comment === null ? 'NULL' : $this->quoteStringLiteral($comment),
+        );
     }
 
     public function supportsSchemas(): bool
