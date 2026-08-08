@@ -20,9 +20,11 @@ use Doctrine\DBAL\SQL\Builder\SelectSQLBuilder;
 use Doctrine\DBAL\TransactionIsolationLevel;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\Deprecations\Deprecation;
+use DuckDb\DBAL\Exception\InvalidColumnType\DuckDBFieldsRequired;
 use DuckDb\DBAL\Platforms\DuckDB\DuckDBMetadataProvider;
 use DuckDb\DBAL\Platforms\Keywords\DuckDBKeywords;
 use DuckDb\DBAL\Schema\DuckDBSchemaManager;
+use DuckDb\DBAL\Schema\DuckDBStructType;
 use DuckDb\DBAL\Schema\DuckDBTableDiff;
 use DuckDb\DBAL\Schema\DuckDBType;
 
@@ -38,6 +40,10 @@ class DuckDBPlatform extends AbstractPlatform
     public function __construct()
     {
         parent::__construct(UnquotedIdentifierFolding::NONE);
+
+        if (! Type::hasType('struct')) {
+            Type::addType('struct', DuckDBStructType::class);
+        }
     }
 
     public function getCreateDatabaseSQL(string $name): string
@@ -312,6 +318,28 @@ class DuckDBPlatform extends AbstractPlatform
         $quotedValues = array_map(fn(string $value): string => $this->quoteStringLiteral($value), array_values($column['values']));
 
         return 'ENUM(' . implode(', ', $quotedValues) . ')';
+    }
+
+    /**
+     * The fields of the struct are passed either as the column option
+     * "fields" or as a fallback via the $fields argument. The fields are a
+     * single string such as "id integer, name varchar" so that nested
+     * structs are naturally supported.
+     *
+     * @param array<string, mixed> $column
+     */
+    public function getStructDeclarationSQL(array $column, string $fields = ''): string
+    {
+        if ($fields === '') {
+            $fields = isset($column['fields']) ? (string) $column['fields'] : '';
+        }
+
+        $fields = trim($fields);
+        if ($fields === '') {
+            throw DuckDBFieldsRequired::new($this, 'STRUCT');
+        }
+
+        return 'STRUCT(' . $fields . ')';
     }
 
     /** @internal The method should be only used from within the {@see AbstractSchemaManager} class hierarchy. */
@@ -634,6 +662,9 @@ class DuckDBPlatform extends AbstractPlatform
      * lookup, and types without a dedicated mapping (arrays, nested structs,
      * maps, unions, enums) are reported as a {@see DuckDBType} that emits the
      * type name verbatim.
+     *
+     * Struct declarations are resolved to a {@see DuckDBStructType} carrying
+     * their parsed fields.
      */
     public function getDoctrineType(string $dbType): Type
     {
@@ -641,6 +672,15 @@ class DuckDBPlatform extends AbstractPlatform
         $parenPosition = strpos($typeName, '(');
         if ($parenPosition !== false) {
             $typeName = substr($typeName, 0, $parenPosition);
+        }
+
+        if ($typeName === 'struct') {
+            $fields = '';
+            if (preg_match('/^STRUCT\((.*)\)$/i', trim($dbType), $matches)) {
+                $fields = trim($matches[1]);
+            }
+
+            return new DuckDBStructType($fields);
         }
 
         if ($this->hasDoctrineTypeMappingFor($typeName)) {
@@ -686,7 +726,7 @@ class DuckDBPlatform extends AbstractPlatform
             'datetime'   => 'datetime',
             'interval'   => 'dateinterval',
             'json'       => 'json',
-            'struct'     => 'json',
+            'struct'     => 'struct',
             'variant'    => 'json',
             'time'       => 'time',
             'time with time zone' => 'time',
