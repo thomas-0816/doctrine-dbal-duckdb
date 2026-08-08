@@ -290,9 +290,6 @@ class DuckDBSchemaManager extends AbstractSchemaManager
                 continue;
             }
             $options = ['lengths' => []];
-            if (isset($row['where'])) {
-                $options['where'] = $row['where'];
-            }
             $indexes[$keyName] = new Index(
                 $indexName,
                 $row['column_names'],

@@ -21,12 +21,7 @@ final class DuckDBSchema extends Schema // @phpstan-ignore-line
             [],
             $this->_schemaConfig->toTableConfiguration(),
         );
-
         $this->_addTable($table);
-
-        foreach ($this->_schemaConfig->getDefaultTableOptions() as $option => $value) {
-            $table->addOption($option, $value);
-        }
 
         return $table;
     }

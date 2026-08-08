@@ -25,7 +25,7 @@ final class DuckDBSchemaTest extends TestCase
         $fromSchema = $schemaManager->introspectSchema();
         $toSchema = clone $fromSchema;
         $table = $toSchema->createTable('t1');
-        $table->addColumn('id', 'integer', ['autoincrement' => true]);
+        $table->addColumn('id', 'integer', ['autoincrement' => true, 'unsigned' => true]);
         $table->addColumn('v2', 'json', ['comment' => 'foo']);
         $table->addColumn('v3', 'guid');
         $table->addColumn('v4', 'string', ['length' => 42]);
@@ -53,7 +53,7 @@ final class DuckDBSchemaTest extends TestCase
 
         Assert::assertSame([
             'CREATE SEQUENCE IF NOT EXISTS t1_id_seq',
-            "CREATE TABLE t1 (id INTEGER DEFAULT nextval('t1_id_seq') NOT NULL, v2 JSON NOT NULL, v3 UUID NOT NULL, v4 VARCHAR NOT NULL, "
+            "CREATE TABLE t1 (id UINTEGER DEFAULT nextval('t1_id_seq') NOT NULL, v2 JSON NOT NULL, v3 UUID NOT NULL, v4 VARCHAR NOT NULL, "
             . "v7 TIMESTAMP WITH TIME ZONE NOT NULL, v8 BLOB NOT NULL, v10 ENUM('a', 'b', 'c') NOT NULL, v11 geometry NOT NULL, v12 variant NOT NULL, "
             . "v14 BOOLEAN NOT NULL, v16 bignum NOT NULL, v17 hugeint NOT NULL, v18 union(num INTEGER, str VARCHAR) NOT NULL, v19 map(INTEGER, VARCHAR) NOT NULL, "
             . "v20 struct(a STRUCT(x INTEGER), b VARCHAR) NOT NULL, descr VARCHAR DEFAULT NULL, PRIMARY KEY (id))",
