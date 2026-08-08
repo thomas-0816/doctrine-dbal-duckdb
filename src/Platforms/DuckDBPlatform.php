@@ -23,11 +23,17 @@ use Doctrine\Deprecations\Deprecation;
 use DuckDb\DBAL\Exception\InvalidColumnType\DuckDBFieldsRequired;
 use DuckDb\DBAL\Platforms\DuckDB\DuckDBMetadataProvider;
 use DuckDb\DBAL\Platforms\Keywords\DuckDBKeywords;
-use DuckDb\DBAL\Schema\DuckDBGeometryType;
+use DuckDb\DBAL\Schema\Types\DuckDBBignumType;
+use DuckDb\DBAL\Schema\Types\DuckDBGeometryType;
+use DuckDb\DBAL\Schema\Types\DuckDBHugeintType;
+use DuckDb\DBAL\Schema\Types\DuckDBUHugeintType;
 use DuckDb\DBAL\Schema\DuckDBSchemaManager;
-use DuckDb\DBAL\Schema\DuckDBStructType;
+use DuckDb\DBAL\Schema\Types\DuckDBStructType;
+use DuckDb\DBAL\Schema\Types\DuckDBVariantType;
 use DuckDb\DBAL\Schema\DuckDBTableDiff;
-use DuckDb\DBAL\Schema\DuckDBType;
+use DuckDb\DBAL\Schema\Types\DuckDBType;
+use DuckDb\DBAL\Schema\Types\DuckDBMapType;
+use DuckDb\DBAL\Schema\Types\DuckDBUnionType;
 
 /**
  * The DuckDBPlatform class describes the specifics and dialects of the DuckDB
@@ -42,11 +48,21 @@ class DuckDBPlatform extends AbstractPlatform
     {
         parent::__construct(UnquotedIdentifierFolding::NONE);
 
-        if (! Type::hasType('struct')) {
-            Type::addType('struct', DuckDBStructType::class);
-        }
-        if (! Type::hasType('geometry')) {
-            Type::addType('geometry', DuckDBGeometryType::class);
+        $duckDbTypes = [
+            'struct'   => DuckDBStructType::class,
+            'geometry' => DuckDBGeometryType::class,
+            'variant'  => DuckDBVariantType::class,
+            'bignum'   => DuckDBBignumType::class,
+            'union'    => DuckDBUnionType::class,
+            'map'      => DuckDBMapType::class,
+            'hugeint'  => DuckDBHugeintType::class,
+            'uhugeint' => DuckDBUHugeintType::class,
+        ];
+
+        foreach ($duckDbTypes as $name => $class) {
+            if (! Type::hasType($name)) {
+                Type::addType($name, $class);
+            }
         }
     }
 
@@ -346,9 +362,71 @@ class DuckDBPlatform extends AbstractPlatform
         return 'STRUCT(' . $fields . ')';
     }
 
+    /**
+     * The fields of the union are passed either as the column option "fields"
+     * or as a fallback via the $fields argument, in the same way as for a
+     * struct. The fields are a single string such as "a integer, b varchar".
+     *
+     * @param array<string, mixed> $column
+     */
+    public function getUnionDeclarationSQL(array $column, string $fields = ''): string
+    {
+        if ($fields === '') {
+            $fields = isset($column['fields']) ? (string) $column['fields'] : '';
+        }
+
+        $fields = trim($fields);
+        if ($fields === '') {
+            throw DuckDBFieldsRequired::new($this, 'UNION');
+        }
+
+        return 'UNION(' . $fields . ')';
+    }
+
+    /**
+     * The key and value types of the map are passed either as the column
+     * option "fields" or as a fallback via the $fields argument. The fields
+     * are a single string such as "integer, varchar".
+     *
+     * @param array<string, mixed> $column
+     */
+    public function getMapDeclarationSQL(array $column, string $fields = ''): string
+    {
+        if ($fields === '') {
+            $fields = isset($column['fields']) ? (string) $column['fields'] : '';
+        }
+
+        $fields = trim($fields);
+        if ($fields === '') {
+            throw DuckDBFieldsRequired::new($this, 'MAP');
+        }
+
+        return 'MAP(' . $fields . ')';
+    }
+
     public function getGeometryDeclarationSQL(): string
     {
         return 'GEOMETRY';
+    }
+
+    public function getVariantDeclarationSQL(): string
+    {
+        return 'VARIANT';
+    }
+
+    public function getBignumDeclarationSQL(): string
+    {
+        return 'BIGNUM';
+    }
+
+    public function getHugeintDeclarationSQL(): string
+    {
+        return 'HUGEINT';
+    }
+
+    public function getUhugeintDeclarationSQL(): string
+    {
+        return 'UHUGEINT';
     }
 
     /** @internal The method should be only used from within the {@see AbstractSchemaManager} class hierarchy. */
@@ -668,12 +746,12 @@ class DuckDBPlatform extends AbstractPlatform
      *
      * DuckDB returns complete type declarations such as "DECIMAL(18,3)",
      * "VARCHAR[]" or "ENUM('a','b')". The parens are stripped before the
-     * lookup, and types without a dedicated mapping (arrays, nested structs,
-     * maps, unions, enums) are reported as a {@see DuckDBType} that emits the
-     * type name verbatim.
+     * lookup, and types without a dedicated mapping (arrays, nested types,
+     * enums) are reported as a {@see DuckDBType} that emits the type name
+     * verbatim.
      *
-     * Struct declarations are resolved to a {@see DuckDBStructType} carrying
-     * their parsed fields.
+     * Struct, union and map declarations are resolved to a dedicated type
+     * carrying their parsed fields.
      */
     public function getDoctrineType(string $dbType): Type
     {
@@ -690,6 +768,24 @@ class DuckDBPlatform extends AbstractPlatform
             }
 
             return new DuckDBStructType($fields);
+        }
+
+        if ($typeName === 'union') {
+            $fields = '';
+            if (preg_match('/^UNION\((.*)\)$/i', trim($dbType), $matches)) {
+                $fields = trim($matches[1]);
+            }
+
+            return new DuckDBUnionType($fields);
+        }
+
+        if ($typeName === 'map') {
+            $fields = '';
+            if (preg_match('/^MAP\((.*)\)$/i', trim($dbType), $matches)) {
+                $fields = trim($matches[1]);
+            }
+
+            return new DuckDBMapType($fields);
         }
 
         if ($this->hasDoctrineTypeMappingFor($typeName)) {
@@ -711,9 +807,9 @@ class DuckDBPlatform extends AbstractPlatform
             'uinteger'   => 'integer',
             'bigint'     => 'bigint',
             'ubigint'    => 'string',
-            'hugeint'    => 'string',
-            'uhugeint'   => 'string',
-            'bignum'     => 'string',
+            'hugeint'    => 'hugeint',
+            'uhugeint'   => 'uhugeint',
+            'bignum'     => 'bignum',
             'double'     => 'float',
             'float'      => 'smallfloat',
             'real'       => 'smallfloat',
@@ -736,7 +832,7 @@ class DuckDBPlatform extends AbstractPlatform
             'interval'   => 'dateinterval',
             'json'       => 'json',
             'struct'     => 'struct',
-            'variant'    => 'json',
+            'variant'    => 'variant',
             'time'       => 'time',
             'time with time zone' => 'time',
             'time without time zone' => 'time',
