@@ -81,6 +81,9 @@ SET enable_external_access = false;
 SET threads = 4;
 SET memory_limit = '4GB';
 SET max_temp_directory_size = '4GB';
+
+# Lock configuration
+SET lock_configuration = true;
 ```
 
 A complete list is available in the DuckDB documentation: [Securing DuckDB](https://duckdb.org/docs/lts/operations_manual/securing_duckdb/overview).
