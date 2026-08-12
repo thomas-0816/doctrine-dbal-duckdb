@@ -139,6 +139,7 @@ final class DuckDBSchemaTest extends TestCase
         $table->setPrimaryKey(['id']);
         $schemaManager->createTable($table);
         Assert::assertCount(1, $schemaManager->introspectSequences());
+        Assert::assertCount(1, $schemaManager->introspectTableNames());
         $schemaManager->dropTable('t1');
         Assert::assertSame([], $schemaManager->introspectSequences());
         Assert::assertSame([], $schemaManager->introspectTableNames());
@@ -311,5 +312,32 @@ final class DuckDBSchemaTest extends TestCase
             $names[] = $view->getObjectName()->getUnqualifiedName()->getValue();
         }
         Assert::assertSame(['t1_view'], $names);
+    }
+
+    public function testIntrospectSchemas(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $names = [];
+        foreach ($schemaManager->introspectSchemaNames() as $schemaName) {
+            $names[] = $schemaName->getIdentifier()->getValue();
+        }
+        Assert::assertSame(['main'], $names);
+    }
+
+    public function testIntrospectTables(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement('CREATE TABLE t1 (id INTEGER DEFAULT 42, b1 bool default true, b2 bool default false)');
+        $connection->executeStatement('CREATE INDEX t1_id on t1(id)');
+
+        $names = [];
+        foreach ($schemaManager->introspectTables() as $table) {
+            $names[] = $table->getObjectName()->getUnqualifiedName()->getValue();
+        }
+        Assert::assertSame(['t1'], $names);
     }
 }

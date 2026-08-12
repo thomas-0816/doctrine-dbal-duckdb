@@ -46,12 +46,12 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
     /** {@inheritDoc} */
     public function getAllSchemaNames(): iterable
     {
-        $sql = '
-            SELECT schema_name
+        $sql = "
+            SELECT DISTINCT schema_name
             FROM duckdb_schemas()
-            WHERE database_name = current_database() AND NOT internal
-            ORDER BY schema_name
-        ';
+            WHERE database_name = current_database()
+            ORDER BY schema_name != 'main', schema_name
+        ";
         foreach ($this->connection->iterateColumn($sql) as $schemaName) {
             yield new SchemaMetadataRow($schemaName);
         }
@@ -166,10 +166,10 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
         if ($expression === null || $expression === 'NULL') {
             return null;
         }
-        if ($expression === 'true') {
+        if ($expression === 'true' || $expression === "CAST('t' AS BOOLEAN)") {
             return true;
         }
-        if ($expression === 'false') {
+        if ($expression === 'false' || $expression === "CAST('f' AS BOOLEAN)") {
             return false;
         }
 
