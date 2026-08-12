@@ -7,9 +7,7 @@ use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Schema\Exception\IndexNameInvalid;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
-use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Table;
-use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\Types\BlobType;
 use Doctrine\DBAL\Types\EnumType;
 use Doctrine\DBAL\Types\Types;
@@ -573,14 +571,18 @@ final class DuckDBSchemaTest extends TestCase
         $connection->executeStatement('CREATE TABLE t1 (id integer primary key, v0 varchar, v1 varchar)');
         $connection->executeStatement('CREATE INDEX idx_v0 ON t1 (v0)');
 
-        $oldTable = $schemaManager->introspectTableByUnquotedName('t1');
-        $diff = new TableDiff($oldTable, modifiedIndexes: [new Index('idx_v0', ['v0', 'v1'])]);
-        $statements = $connection->getDatabasePlatform()->getAlterTableSQL($diff);
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema   = clone $fromSchema;
+        $table = $toSchema->getTable('t1');
+        $table->dropIndex('idx_v0');
+        $table->addIndex(['v0', 'v1'], 'idx_v0');
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         foreach ($statements as $statement) {
             $connection->executeStatement($statement);
         }
         Assert::assertSame([
-            'DROP INDEX "idx_v0"',
+            'DROP INDEX idx_v0',
             'CREATE INDEX idx_v0 ON t1 (v0, v1)',
         ], $statements);
     }

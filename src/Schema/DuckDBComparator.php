@@ -25,6 +25,7 @@ final class DuckDBComparator extends Comparator
             changedColumns: $diff->getChangedColumns(),
             droppedColumns: $diff->getDroppedColumns(),
             addedIndexes: $diff->getAddedIndexes(),
+            modifiedIndexes: $diff->getModifiedIndexes(),
             droppedIndexes: $diff->getDroppedIndexes(),
             renamedIndexes: $diff->getRenamedIndexes(),
             addedForeignKeys: $diff->getAddedForeignKeys(),
