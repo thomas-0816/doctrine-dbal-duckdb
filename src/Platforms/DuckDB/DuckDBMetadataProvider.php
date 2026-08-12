@@ -80,9 +80,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
     /** {@inheritDoc} */
     public function getTableColumnsForTable(?string $schemaName, string $tableName): iterable
     {
-        if ($schemaName === null) {
-            throw UnsupportedName::fromNullSchemaName(__METHOD__);
-        }
+        $this->throw_if($schemaName === null, UnsupportedName::fromNullSchemaName(__METHOD__));
 
         return $this->getTableColumns($schemaName, $tableName);
     }
@@ -185,9 +183,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
     /** {@inheritDoc} */
     public function getIndexColumnsForTable(?string $schemaName, string $tableName): iterable
     {
-        if ($schemaName === null) {
-            throw UnsupportedName::fromNullSchemaName(__METHOD__);
-        }
+        $this->throw_if($schemaName === null, UnsupportedName::fromNullSchemaName(__METHOD__));
 
         return $this->getIndexColumns($schemaName, $tableName);
     }
@@ -239,9 +235,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
     /** {@inheritDoc} */
     public function getPrimaryKeyConstraintColumnsForTable(?string $schemaName, string $tableName): iterable
     {
-        if ($schemaName === null) {
-            throw UnsupportedName::fromNullSchemaName(__METHOD__);
-        }
+        $this->throw_if($schemaName === null, UnsupportedName::fromNullSchemaName(__METHOD__));
 
         return $this->getPrimaryKeyConstraintColumns($schemaName, $tableName);
     }
@@ -284,9 +278,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
     /** {@inheritDoc} */
     public function getForeignKeyConstraintColumnsForTable(?string $schemaName, string $tableName): iterable
     {
-        if ($schemaName === null) {
-            throw UnsupportedName::fromNullSchemaName(__METHOD__);
-        }
+        $this->throw_if($schemaName === null, UnsupportedName::fromNullSchemaName(__METHOD__));
 
         return $this->getForeignKeyConstraintColumns($schemaName, $tableName);
     }
@@ -319,24 +311,23 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
             foreach ($localColumnNames as $index => $localColumn) {
                 $localColumn = trim((string) $localColumn, '"');
                 $foreignColumn = trim((string) ($foreignColumnNames[$index] ?? $localColumn), '"');
-                if ($localColumn === '' || $foreignColumn === '') {
-                    continue;
+                if ($localColumn !== '' && $foreignColumn !== '') {
+                    yield new ForeignKeyConstraintColumnMetadataRow(
+                        $row['schema_name'],
+                        $row['table_name'],
+                        null,
+                        $row['constraint_name'],
+                        $row['schema_name'],
+                        $row['referenced_table'],
+                        MatchType::SIMPLE,
+                        ReferentialAction::NO_ACTION,
+                        ReferentialAction::NO_ACTION,
+                        false,
+                        false,
+                        $localColumn,
+                        $foreignColumn
+                    );
                 }
-                yield new ForeignKeyConstraintColumnMetadataRow(
-                    $row['schema_name'],
-                    $row['table_name'],
-                    null,
-                    $row['constraint_name'],
-                    $row['schema_name'],
-                    $row['referenced_table'],
-                    MatchType::SIMPLE,
-                    ReferentialAction::NO_ACTION,
-                    ReferentialAction::NO_ACTION,
-                    false,
-                    false,
-                    $localColumn,
-                    $foreignColumn
-                );
             }
         }
     }
@@ -350,9 +341,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
     /** {@inheritDoc} */
     public function getTableOptionsForTable(?string $schemaName, string $tableName): iterable
     {
-        if ($schemaName === null) {
-            throw UnsupportedName::fromNullSchemaName(__METHOD__);
-        }
+        $this->throw_if($schemaName === null, UnsupportedName::fromNullSchemaName(__METHOD__));
 
         return $this->getTableOptions($schemaName, $tableName);
     }
@@ -409,6 +398,16 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
         ';
         foreach ($this->connection->iterateAssociative($sql) as $row) {
             yield new SequenceMetadataRow($row['schema_name'], $row['sequence_name'], (int) $row['increment_by'], (int) $row['start_value'], null);
+        }
+    }
+
+    /**
+     * @codeCoverageIgnore
+     */
+    private function throw_if(bool $condition, Exception $exception): void
+    {
+        if ($condition) {
+            throw $exception;
         }
     }
 }

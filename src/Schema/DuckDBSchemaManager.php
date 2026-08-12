@@ -84,16 +84,12 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         if (str_contains($table, '.')) {
             [$schema, $table] = explode('.', $table, 2);
         }
-        $params = [$table];
+        $params = $schema !== null ? [$table, $schema] : [$table];
         $sql = '
             SELECT column_default
             FROM duckdb_columns()
-            WHERE database_name = current_database() AND NOT internal AND table_name = ?
-        ';
-        if ($schema !== null) {
-            $params[] = $schema;
-            $sql .= 'AND schema_name = ?';
-        }
+            WHERE database_name = current_database() AND NOT internal AND table_name = ?'
+            . ($schema !== null ? 'AND schema_name = ?' : '');
         $sequences = [];
         foreach ($this->connection->fetchFirstColumn($sql, $params) as $default) {
             if (preg_match("/nextval\('([^']+)'\)/", $default ?? '', $matches)) {
@@ -232,14 +228,8 @@ class DuckDBSchemaManager extends AbstractSchemaManager
 
     protected function selectTableColumns(string $databaseName, ?string $tableName = null): Result
     {
-        $params = [];
-        $whereClause = '';
-        if ($tableName !== null) {
-            $params[] = $tableName;
-            $whereClause = 'AND table_name = ?';
-        }
-        $sql = sprintf(
-            "
+        $params = $tableName !== null ? [$tableName] : [];
+        $sql = "
             SELECT schema_name,
                 table_name,
                 column_name AS name,
@@ -252,10 +242,9 @@ class DuckDBSchemaManager extends AbstractSchemaManager
                 comment
             FROM duckdb_columns()
             WHERE database_name = current_database() AND NOT internal
-            %s
-            ORDER BY table_name, column_index",
-            $whereClause,
-        );
+            " . ($tableName !== null ? 'AND table_name = ?' : '') . "
+            ORDER BY table_name, column_index
+        ";
 
         return $this->connection->executeQuery($sql, $params);
     }
@@ -304,42 +293,27 @@ class DuckDBSchemaManager extends AbstractSchemaManager
 
     protected function selectIndexColumns(string $databaseName, ?string $tableName = null): Result
     {
-        $params = [];
-        $whereClause = '';
-        if ($tableName !== null) {
-            $params[] = $tableName;
-            $params[] = $tableName;
-            $whereClause = 'AND table_name = ?';
-        }
-        $sql = sprintf(
-            "
+        $params = $tableName !== null ? [$tableName, $tableName] : [];
+        $sql = "
             SELECT schema_name, table_name, index_name AS key_name, false AS primary, NOT is_unique AS non_unique, expressions::VARCHAR[] AS column_names
             FROM duckdb_indexes()
             WHERE database_name = current_database() AND NOT is_primary
-            %s
+            " . ($tableName !== null ? 'AND table_name = ?' : '') . "
             UNION ALL
             SELECT schema_name, table_name, 'primary' AS key_name, true AS primary, false AS non_unique, constraint_column_names AS column_names
             FROM duckdb_constraints()
             WHERE database_name = current_database() AND constraint_type = 'PRIMARY KEY'
-            %s
-            ORDER BY table_name, key_name",
-            $whereClause,
-            $whereClause
-        );
+            " . ($tableName !== null ? 'AND table_name = ?' : '') . "
+            ORDER BY table_name, key_name
+        ";
 
         return $this->connection->executeQuery($sql, $params);
     }
 
     protected function selectForeignKeyColumns(string $databaseName, ?string $tableName = null): Result
     {
-        $params = [];
-        $whereClause = '';
-        if ($tableName !== null) {
-            $params[] = $tableName;
-            $whereClause = 'AND table_name = ?';
-        }
-        $sql = sprintf(
-            "
+        $params = $tableName !== null ? [$tableName] : [];
+        $sql = "
             SELECT schema_name,
                 table_name,
                 constraint_name,
@@ -348,10 +322,9 @@ class DuckDBSchemaManager extends AbstractSchemaManager
                 referenced_column_names AS foreign
             FROM duckdb_constraints()
             WHERE database_name = current_database() AND constraint_type = 'FOREIGN KEY'
-            %s
-            ORDER BY table_name, constraint_name",
-            $whereClause,
-        );
+            " . ($tableName !== null ? 'AND table_name = ?' : '') . "
+            ORDER BY table_name, constraint_name
+        ";
 
         return $this->connection->executeQuery($sql, $params);
     }
@@ -361,20 +334,12 @@ class DuckDBSchemaManager extends AbstractSchemaManager
      */
     protected function fetchTableOptionsByTable(string $databaseName, ?string $tableName = null): array
     {
-        $params = [];
-        $whereClause = '';
-        if ($tableName !== null) {
-            $params[] = $tableName;
-            $whereClause = 'AND table_name = ?';
-        }
-        $sql = sprintf(
-            '
+        $params = $tableName !== null ? [$tableName] : [];
+        $sql = "
             SELECT schema_name, table_name, comment
             FROM duckdb_tables()
             WHERE database_name = current_database() AND NOT internal
-            %s',
-            $whereClause,
-        );
+            " . ($tableName !== null ? 'AND table_name = ?' : '');
 
         $tableOptions = [];
         foreach ($this->connection->iterateAssociative($sql, $params) as $row) {

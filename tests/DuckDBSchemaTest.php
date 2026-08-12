@@ -3,6 +3,7 @@
 namespace DuckDb\DBAL\Tests;
 
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Table;
@@ -166,7 +167,7 @@ final class DuckDBSchemaTest extends TestCase
         $schemaManager->createTable($table);
         Assert::assertCount(1, $schemaManager->introspectSequences());
         Assert::assertCount(1, $schemaManager->introspectTableNames());
-        $schemaManager->dropTable('t1');
+        $schemaManager->dropTable('main.t1');
         Assert::assertSame([], $schemaManager->introspectSequences());
         Assert::assertSame([], $schemaManager->introspectTableNames());
 
@@ -456,6 +457,42 @@ final class DuckDBSchemaTest extends TestCase
         }
 
         Assert::assertContains('main.base_view', $names);
+    }
+
+    public function testInvalidEnum(): void
+    {
+        $this->expectException(ColumnValuesRequired::class);
+
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $schemaManager = $connection->createSchemaManager();
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $table = $toSchema->createTable('t1');
+        $table->addColumn('v11', 'enum', []);
+
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+    }
+
+    public function testDropPrimary(): void
+    {
+        $this->expectException(NotSupported::class);
+
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement("CREATE TABLE t1 (i1 uinteger primary key, v0 varchar)");
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $table = $toSchema->getTable('t1');
+        $table->dropPrimaryKey();
+
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
     }
 
     public function testCreateForeignKey(): void
