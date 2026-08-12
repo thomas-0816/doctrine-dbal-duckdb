@@ -29,18 +29,24 @@ final class DuckDBSchemaTest extends TestCase
         $table->addColumn('v2', 'json', ['comment' => 'foo']);
         $table->addColumn('v3', 'guid');
         $table->addColumn('v4', 'string', ['length' => 42]);
+        $table->addColumn('v5', 'date');
+        $table->addColumn('v6', 'datetime');
         $table->addColumn('v7', 'datetimetz');
-        $table->addColumn('v8', 'binary');
-        $table->addColumn('v10', 'enum', ['values' => ['a', 'b', 'c']]);
-        $table->addColumn('v11', 'geometry');
-        $table->addColumn('v12', 'variant');
-        $table->addColumn('v14', 'boolean');
-        $table->addColumn('v16', 'bignum');
-        $table->addColumn('v17', 'hugeint');
-        $table->addColumn('v18', 'union(num INTEGER, str VARCHAR)');
-        $table->addColumn('v19', 'map(INTEGER, VARCHAR)');
-        $table->addColumn('v20', 'struct(a STRUCT(x INTEGER), b VARCHAR)');
-        $table->addColumn('descr', 'text', ['notnull' => false]);
+        $table->addColumn('v8', 'time');
+        $table->addColumn('v9', 'binary', ['fixed' => true]);
+        $table->addColumn('v10', 'binary');
+        $table->addColumn('v11', 'enum', ['values' => ['a', 'b', 'c']]);
+        $table->addColumn('v12', 'geometry');
+        $table->addColumn('v13', 'variant');
+        $table->addColumn('v14', 'smallint');
+        $table->addColumn('v15', 'boolean');
+        $table->addColumn('v16', 'bigint');
+        $table->addColumn('v17', 'bignum');
+        $table->addColumn('v18', 'hugeint');
+        $table->addColumn('v19', 'union(num INTEGER, str VARCHAR)');
+        $table->addColumn('v20', 'map(INTEGER, VARCHAR)');
+        $table->addColumn('v21', 'struct(a STRUCT(x INTEGER), b VARCHAR)');
+        $table->addColumn('descr', 'text', ['notnull' => false, 'unique' => true]);
         $table->setPrimaryKey(['id']);
         $table->setComment('bar');
 
@@ -49,10 +55,7 @@ final class DuckDBSchemaTest extends TestCase
 
         Assert::assertSame([
             'CREATE SEQUENCE IF NOT EXISTS t1_id_seq',
-            "CREATE TABLE t1 (id UINTEGER DEFAULT nextval('t1_id_seq') NOT NULL, v2 JSON NOT NULL, v3 UUID NOT NULL, v4 VARCHAR NOT NULL, "
-            . "v7 TIMESTAMP WITH TIME ZONE NOT NULL, v8 BLOB NOT NULL, v10 ENUM('a', 'b', 'c') NOT NULL, v11 geometry NOT NULL, v12 variant NOT NULL, "
-            . "v14 BOOLEAN NOT NULL, v16 bignum NOT NULL, v17 hugeint NOT NULL, v18 union(num INTEGER, str VARCHAR) NOT NULL, v19 map(INTEGER, VARCHAR) NOT NULL, "
-            . "v20 struct(a STRUCT(x INTEGER), b VARCHAR) NOT NULL, descr VARCHAR DEFAULT NULL, PRIMARY KEY (id))",
+            "CREATE TABLE t1 (id UINTEGER DEFAULT nextval('t1_id_seq') NOT NULL, v2 JSON NOT NULL, v3 UUID NOT NULL, v4 VARCHAR NOT NULL, v5 DATE NOT NULL, v6 TIMESTAMP NOT NULL, v7 TIMESTAMP WITH TIME ZONE NOT NULL, v8 TIME NOT NULL, v9 BLOB NOT NULL, v10 BLOB NOT NULL, v11 ENUM('a', 'b', 'c') NOT NULL, v12 geometry NOT NULL, v13 variant NOT NULL, v14 SMALLINT NOT NULL, v15 BOOLEAN NOT NULL, v16 BIGINT NOT NULL, v17 bignum NOT NULL, v18 hugeint NOT NULL, v19 union(num INTEGER, str VARCHAR) NOT NULL, v20 map(INTEGER, VARCHAR) NOT NULL, v21 struct(a STRUCT(x INTEGER), b VARCHAR) NOT NULL, descr VARCHAR DEFAULT NULL, PRIMARY KEY (id))",
             "COMMENT ON TABLE t1 IS 'bar'",
             "COMMENT ON COLUMN t1.v2 IS 'foo'",
         ], $statements);
@@ -68,7 +71,18 @@ final class DuckDBSchemaTest extends TestCase
         $connection = DriverManager::getConnection($connectionParams);
         $schemaManager = $connection->createSchemaManager();
 
-        $connection->executeStatement("CREATE TABLE t1 (i1 uinteger)");
+        $connection->executeStatement("CREATE TABLE t1 (i1 uinteger, v0 varchar)");
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $table = $toSchema->getTable('t1');
+        $table->dropColumn('v0');
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
+        Assert::assertSame(['ALTER TABLE t1 DROP COLUMN v0'], $statements);
 
         $fromSchema = $schemaManager->introspectSchema();
         $toSchema = clone $fromSchema;
@@ -76,7 +90,7 @@ final class DuckDBSchemaTest extends TestCase
         $table->addColumn('id', 'integer', ['autoincrement' => true]);
         $table->addColumn('v2', 'json', ['comment' => 'foo']);
         $table->addColumn('v3', 'guid');
-        $table->addColumn('v4', 'string', ['length' => 42]);
+        $table->addColumn('v4', 'string', ['length' => 42, 'default' => 'foo']);
         $table->addColumn('v7', 'datetimetz', ['notnull' => false]);
         $table->addColumn('v8', 'binary', ['notnull' => false]);
         $table->addColumn('v10', 'enum', ['values' => ['a', 'b', 'c']]);
@@ -91,14 +105,11 @@ final class DuckDBSchemaTest extends TestCase
         $table->addColumn('descr', 'text', ['notnull' => false]);
         $table->setPrimaryKey(['id']);
         $table->setComment('bar');
-
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
-
         foreach ($statements as $statement) {
             $connection->executeStatement($statement);
         }
-
         Assert::assertSame([
             'CREATE SEQUENCE IF NOT EXISTS t1_id_seq',
             "ALTER TABLE t1 ADD COLUMN id INTEGER DEFAULT nextval('t1_id_seq')",
@@ -108,7 +119,7 @@ final class DuckDBSchemaTest extends TestCase
             "COMMENT ON COLUMN t1.v2 IS 'foo'",
             'ALTER TABLE t1 ADD COLUMN v3 UUID DEFAULT NULL',
             'ALTER TABLE t1 ALTER COLUMN v3 SET NOT NULL',
-            'ALTER TABLE t1 ADD COLUMN v4 VARCHAR DEFAULT NULL',
+            "ALTER TABLE t1 ADD COLUMN v4 VARCHAR DEFAULT 'foo'",
             'ALTER TABLE t1 ALTER COLUMN v4 SET NOT NULL',
             'ALTER TABLE t1 ADD COLUMN v7 TIMESTAMP WITH TIME ZONE DEFAULT NULL',
             'ALTER TABLE t1 ADD COLUMN v8 BLOB DEFAULT NULL',
@@ -126,6 +137,18 @@ final class DuckDBSchemaTest extends TestCase
             "COMMENT ON TABLE t1 IS 'bar'",
             'ALTER TABLE t1 ADD PRIMARY KEY (id)',
         ], $statements);
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $table = $toSchema->getTable('t1');
+        $table->addColumn('v14_2', 'boolean', ['notnull' => false]);
+        $table->dropColumn('v14');
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
+        Assert::assertSame(['ALTER TABLE t1 RENAME COLUMN v14 TO v14_2'], $statements);
     }
 
     public function testDropTableDropsAutoincrementSequence(): void
@@ -210,7 +233,7 @@ final class DuckDBSchemaTest extends TestCase
         $schemaManager = $connection->createSchemaManager();
 
         $connection->executeStatement('CREATE TABLE t1 (v1 integer, ia integer[])');
-        $connection->executeStatement('CREATE TABLE t2 (v1 integer, ia integer[])');
+        $connection->executeStatement("CREATE TABLE t2 (v1 integer, ia integer[] default '[42]')");
 
         $originalSchema = $schemaManager->introspectSchema();
         Assert::assertSame(['t1', 't2'], array_map(static fn(Table $t): string => $t->getObjectName()->getUnqualifiedName()->getValue(), $originalSchema->getTables()));
@@ -218,42 +241,31 @@ final class DuckDBSchemaTest extends TestCase
         $fromSchema = $originalSchema;
         $toSchema = clone $fromSchema;
         $table = $toSchema->getTable('t2');
-        $table->addColumn('v2', 'varchar[]');
+        $table->addColumn('v2', 'varchar[]')->setDefault('[21]');
         $table->addUniqueConstraint(['v2']); // no-op
         $table->getColumn('ia')->setType(new DuckDBType('varchar[]'));
-        $table->getColumn('ia')->setNotnull(true)->setComment('foo');
+        $table->getColumn('ia')->setNotnull(true)->setComment('foo')->setDefault(null);
+        $table->getColumn('v1')->setDefault('21');
         $table->addUniqueIndex(['v1']);
-        $table->renameColumn('v1', 'v3');
         $table->setComment('bar');
 
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         Assert::assertSame([
-            'ALTER TABLE t2 ADD COLUMN v2 varchar[] DEFAULT NULL',
+            "ALTER TABLE t2 ADD COLUMN v2 varchar[] DEFAULT '[21]'",
             'ALTER TABLE t2 ALTER COLUMN v2 SET NOT NULL',
+            'ALTER TABLE t2 ALTER COLUMN v1 SET DEFAULT 21',
             'ALTER TABLE t2 ALTER COLUMN ia SET DATA TYPE varchar[]',
+            'ALTER TABLE t2 ALTER COLUMN ia DROP DEFAULT',
             'ALTER TABLE t2 ALTER COLUMN ia SET NOT NULL',
             "COMMENT ON COLUMN t2.ia IS 'foo'",
-            'ALTER TABLE t2 RENAME COLUMN v1 TO v3',
             "COMMENT ON TABLE t2 IS 'bar'",
-            'CREATE UNIQUE INDEX UNIQ_C25DFF8D6962CCB5 ON t2 (v3)',
+            'CREATE UNIQUE INDEX UNIQ_C25DFF8D6962CCB5 ON t2 (v1)',
         ], $statements);
 
         foreach ($statements as $statement) {
             $connection->executeStatement($statement);
         }
-
-        $fromSchema = $schemaManager->introspectSchema();
-        $renamedSchema = clone $fromSchema;
-        $renamedSchema->renameTable('t2', 't3');
-        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $renamedSchema);
-        Assert::assertSame([
-            'CREATE TABLE t3 (v3 INTEGER DEFAULT NULL, ia varchar[] NOT NULL, v2 varchar[] NOT NULL)',
-            'CREATE UNIQUE INDEX UNIQ_C25DFF8D6962CCB5 ON t3 (v3)',
-            "COMMENT ON TABLE t3 IS 'bar'",
-            "COMMENT ON COLUMN t3.ia IS 'foo'",
-            'DROP TABLE t2',
-        ], $connection->getDatabasePlatform()->getAlterSchemaSQL($diff));
     }
 
     public function testForeignKey(): void
@@ -339,5 +351,88 @@ final class DuckDBSchemaTest extends TestCase
             $names[] = $table->getObjectName()->getUnqualifiedName()->getValue();
         }
         Assert::assertSame(['t1'], $names);
+    }
+
+    public function testCreateSequence(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $sequence = $toSchema->createSequence('t1');
+        $schemaManager->createSequence($sequence);
+
+        $names = [];
+        foreach ($schemaManager->introspectSequences() as $sequence) {
+            $names[] = $sequence->getObjectName()->getUnqualifiedName()->getValue();
+        }
+        Assert::assertSame(['t1'], $names);
+    }
+
+    public function testDropTableDropIndex(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $schemaManager = $connection->createSchemaManager();
+
+        $table = $schemaManager->introspectSchema()->createTable('t1');
+        $table->addColumn('id', 'integer');
+        $table->addColumn('v0', 'varchar');
+        $table->addIndex(['v0'], 'idx_v0');
+        $schemaManager->createTable($table);
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $table = $toSchema->getTable('t1');
+        $table->dropIndex('idx_v0');
+        $table->addIndex(['v0'], 'idx_v1');
+
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
+        Assert::assertSame(['DROP INDEX idx_v0', 'CREATE INDEX idx_v1 ON t1 (v0)'], $statements);
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $toSchema->getTable('t1')->dropIndex('idx_v1');
+
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
+        Assert::assertSame(['DROP INDEX idx_v1'], $statements);
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $toSchema->dropTable('t1');
+
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
+        Assert::assertSame(['DROP TABLE t1'], $statements);
+    }
+
+    public function testListView(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement('CREATE TABLE base (id INTEGER)');
+        $connection->executeStatement('CREATE VIEW base_view AS SELECT id FROM base');
+
+        $views = $schemaManager->listViews();
+        $names = [];
+        foreach ($views as $view) {
+            $names[] = $view->getObjectName()->toString();
+        }
+
+        Assert::assertContains('main.base_view', $names);
     }
 }
