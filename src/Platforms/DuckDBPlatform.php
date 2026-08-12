@@ -408,16 +408,6 @@ class DuckDBPlatform extends AbstractPlatform
         throw NotSupported::new(__METHOD__);
     }
 
-    public function getDropIndexSQL(string $name, string $table): string
-    {
-        if (str_contains($table, '.')) {
-            [$schema] = explode('.', $table);
-            $name     = $schema . '.' . $name;
-        }
-
-        return parent::getDropIndexSQL($name, $table);
-    }
-
     /**
      * {@inheritDoc}
      */
