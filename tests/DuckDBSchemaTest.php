@@ -46,7 +46,8 @@ final class DuckDBSchemaTest extends TestCase
         $table->addColumn('v19', 'union(num INTEGER, str VARCHAR)');
         $table->addColumn('v20', 'map(INTEGER, VARCHAR)');
         $table->addColumn('v21', 'struct(a STRUCT(x INTEGER), b VARCHAR)');
-        $table->addColumn('descr', 'text', ['notnull' => false, 'unique' => true]);
+        $table->addColumn('descr', 'text', ['notnull' => false]);
+        $table->addUniqueConstraint(['descr']);
         $table->setPrimaryKey(['id']);
         $table->setComment('bar');
 
@@ -55,7 +56,7 @@ final class DuckDBSchemaTest extends TestCase
 
         Assert::assertSame([
             'CREATE SEQUENCE IF NOT EXISTS t1_id_seq',
-            "CREATE TABLE t1 (id UINTEGER DEFAULT nextval('t1_id_seq') NOT NULL, v2 JSON NOT NULL, v3 UUID NOT NULL, v4 VARCHAR NOT NULL, v5 DATE NOT NULL, v6 TIMESTAMP NOT NULL, v7 TIMESTAMP WITH TIME ZONE NOT NULL, v8 TIME NOT NULL, v9 BLOB NOT NULL, v10 BLOB NOT NULL, v11 ENUM('a', 'b', 'c') NOT NULL, v12 geometry NOT NULL, v13 variant NOT NULL, v14 SMALLINT NOT NULL, v15 BOOLEAN NOT NULL, v16 BIGINT NOT NULL, v17 bignum NOT NULL, v18 hugeint NOT NULL, v19 union(num INTEGER, str VARCHAR) NOT NULL, v20 map(INTEGER, VARCHAR) NOT NULL, v21 struct(a STRUCT(x INTEGER), b VARCHAR) NOT NULL, descr VARCHAR DEFAULT NULL, PRIMARY KEY (id))",
+            "CREATE TABLE t1 (id UINTEGER DEFAULT nextval('t1_id_seq') NOT NULL, v2 JSON NOT NULL, v3 UUID NOT NULL, v4 VARCHAR NOT NULL, v5 DATE NOT NULL, v6 TIMESTAMP NOT NULL, v7 TIMESTAMP WITH TIME ZONE NOT NULL, v8 TIME NOT NULL, v9 BLOB NOT NULL, v10 BLOB NOT NULL, v11 ENUM('a', 'b', 'c') NOT NULL, v12 geometry NOT NULL, v13 variant NOT NULL, v14 SMALLINT NOT NULL, v15 BOOLEAN NOT NULL, v16 BIGINT NOT NULL, v17 bignum NOT NULL, v18 hugeint NOT NULL, v19 union(num INTEGER, str VARCHAR) NOT NULL, v20 map(INTEGER, VARCHAR) NOT NULL, v21 struct(a STRUCT(x INTEGER), b VARCHAR) NOT NULL, descr VARCHAR DEFAULT NULL, CONSTRAINT UNIQ_5B54AE374DFDC UNIQUE (descr), PRIMARY KEY (id))",
             "COMMENT ON TABLE t1 IS 'bar'",
             "COMMENT ON COLUMN t1.v2 IS 'foo'",
         ], $statements);
