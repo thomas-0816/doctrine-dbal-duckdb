@@ -13,6 +13,7 @@ use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\Schema\View;
+use Doctrine\DBAL\Types\EnumType;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
 
 /**
@@ -165,8 +166,23 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         if (isset($tableColumn['comment'])) {
             $options['comment'] = $tableColumn['comment'];
         }
+        if ($type instanceof EnumType) {
+            $options['values'] = $this->parseEnumValues($tableColumn['type']);
+        }
 
         return new Column($tableColumn['name'], $type, $options);
+    }
+
+    /**
+     * Parses the values of a DuckDB enum type such as "ENUM('ab','cde')".
+     *
+     * @return list<string>
+     */
+    private function parseEnumValues(string $expression): array
+    {
+        preg_match_all("/'([^']*(?:''[^']*)*)'/", $expression, $matches);
+
+        return array_values(array_filter($matches[1]));
     }
 
     /**
