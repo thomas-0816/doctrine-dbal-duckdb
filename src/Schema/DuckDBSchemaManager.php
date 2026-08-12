@@ -11,8 +11,8 @@ use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\Table;
-use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\Schema\View;
+use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Types\EnumType;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
 
@@ -65,26 +65,14 @@ class DuckDBSchemaManager extends AbstractSchemaManager
 
     public function createForeignKey(ForeignKeyConstraint $foreignKey, string $table): void
     {
-        if ($table === '') {
-            return;
-        }
-
-        $table = $this->introspectTableByUnquotedName($table);
-
-        $this->alterTable(new TableDiff($table, addedForeignKeys: [$foreignKey]));
+        // DuckDB only supports foreign keys defined inline in a CREATE TABLE statement.
+        throw NotSupported::new(__METHOD__);
     }
 
     public function dropForeignKey(string $name, string $table): void
     {
-        if ($table === '') {
-            return;
-        }
-
-        $table = $this->introspectTableByUnquotedName($table);
-
-        $foreignKey = $table->getForeignKey($name);
-
-        $this->alterTable(new TableDiff($table, droppedForeignKeys: [$foreignKey]));
+        // DuckDB does not support dropping constraints with ALTER TABLE.
+        throw NotSupported::new(__METHOD__);
     }
 
     public function dropTable(string $name): void
@@ -103,8 +91,8 @@ class DuckDBSchemaManager extends AbstractSchemaManager
             WHERE database_name = current_database() AND NOT internal AND table_name = ?
         ';
         if ($schema !== null) {
-            $sql .= ' AND schema_name = ?';
             $params[] = $schema;
+            $sql .= 'AND schema_name = ?';
         }
         $sequences = [];
         foreach ($this->connection->fetchFirstColumn($sql, $params) as $default) {
@@ -189,10 +177,10 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         if ($expression === null || $expression === 'NULL') {
             return null;
         }
-        if ($expression === 'true') {
+        if ($expression === 'true' || $expression === "CAST('t' AS BOOLEAN)") {
             return true;
         }
-        if ($expression === 'false') {
+        if ($expression === 'false' || $expression === "CAST('f' AS BOOLEAN)") {
             return false;
         }
 
@@ -298,18 +286,17 @@ class DuckDBSchemaManager extends AbstractSchemaManager
                 $keyName = 'primary';
             }
             $keyName = strtolower($keyName);
-            if (isset($indexes[$keyName])) {
-                continue;
+            if (!isset($indexes[$keyName])) {
+                $options = ['lengths' => []];
+                $indexes[$keyName] = new Index(
+                    $indexName,
+                    $row['column_names'],
+                    ! $row['non_unique'],
+                    $row['primary'],
+                    $row['flags'] ?? [],
+                    $options
+                );
             }
-            $options = ['lengths' => []];
-            $indexes[$keyName] = new Index(
-                $indexName,
-                $row['column_names'],
-                ! $row['non_unique'],
-                $row['primary'],
-                $row['flags'] ?? [],
-                $options
-            );
         }
 
         return $indexes;

@@ -3,6 +3,8 @@
 namespace DuckDb\DBAL\Tests;
 
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Platforms\Exception\NotSupported;
+use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\BlobType;
 use Doctrine\DBAL\Types\EnumType;
@@ -419,6 +421,25 @@ final class DuckDBSchemaTest extends TestCase
         Assert::assertSame(['DROP TABLE t1'], $statements);
     }
 
+    public function testListTables(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement("CREATE TABLE t0 (id INTEGER primary key, b1 boolean default true, b2 boolean default false)");
+        $connection->executeStatement('CREATE TABLE t1 (id INTEGER, b0 integer references t0(id))');
+        $connection->executeStatement('CREATE INDEX t1_id on t1(id)');
+
+        $names = [];
+        foreach ($schemaManager->listTables() as $table) {
+            $names[] = $table->getObjectName()->getUnqualifiedName()->getValue();
+        }
+        Assert::assertSame(['t0', 't1'], $names);
+
+        $names = $schemaManager->listTableNames();
+        Assert::assertSame(['t0', 't1'], $names);
+    }
+
     public function testListView(): void
     {
         $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
@@ -435,5 +456,25 @@ final class DuckDBSchemaTest extends TestCase
         }
 
         Assert::assertContains('main.base_view', $names);
+    }
+
+    public function testCreateForeignKey(): void
+    {
+        $this->expectException(NotSupported::class);
+
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $schemaManager->createForeignKey(new ForeignKeyConstraint(['parent_id'], 'parent', ['id'], 'fk_parent'), 'child');
+    }
+
+    public function testDropForeignKey(): void
+    {
+        $this->expectException(NotSupported::class);
+
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $schemaManager->dropForeignKey('fk_parent', 'child');
     }
 }
