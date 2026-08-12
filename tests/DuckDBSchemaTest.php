@@ -47,10 +47,6 @@ final class DuckDBSchemaTest extends TestCase
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
 
-        foreach ($statements as $statement) {
-            $connection->executeStatement($statement);
-        }
-
         Assert::assertSame([
             'CREATE SEQUENCE IF NOT EXISTS t1_id_seq',
             "CREATE TABLE t1 (id UINTEGER DEFAULT nextval('t1_id_seq') NOT NULL, v2 JSON NOT NULL, v3 UUID NOT NULL, v4 VARCHAR NOT NULL, "
@@ -60,6 +56,10 @@ final class DuckDBSchemaTest extends TestCase
             "COMMENT ON TABLE t1 IS 'bar'",
             "COMMENT ON COLUMN t1.v2 IS 'foo'",
         ], $statements);
+
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
     }
 
     public function testAlterTableAddColumns(): void
@@ -253,5 +253,63 @@ final class DuckDBSchemaTest extends TestCase
             "COMMENT ON COLUMN t3.ia IS 'foo'",
             'DROP TABLE t2',
         ], $connection->getDatabasePlatform()->getAlterSchemaSQL($diff));
+    }
+
+    public function testForeignKey(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $schema = clone $schemaManager->introspectSchema();
+        $parent = $schema->createTable('parent');
+        $parent->addColumn('id', Types::INTEGER, ['autoincrement' => true]);
+        $parent->setPrimaryKey(['id']);
+        $statements = $connection->getDatabasePlatform()->getCreateTableSQL($parent);
+        $schemaManager->createTable($parent);
+
+        Assert::assertSame([
+            'CREATE SEQUENCE IF NOT EXISTS parent_id_seq',
+            "CREATE TABLE parent (id INTEGER DEFAULT nextval('parent_id_seq') NOT NULL, PRIMARY KEY (id))",
+        ], $statements);
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $child = $toSchema->createTable('child');
+        $child->addColumn('id', Types::INTEGER, ['autoincrement' => true]);
+        $child->addColumn('parent_id', Types::INTEGER, ['notnull' => false]);
+        $child->setPrimaryKey(['id']);
+        $child->addForeignKeyConstraint('parent', ['parent_id'], ['id']);
+        $statements = $connection->getDatabasePlatform()->getCreateTableSQL($child);
+        $schemaManager->createTable($child);
+
+        Assert::assertSame([
+            'CREATE SEQUENCE IF NOT EXISTS child_id_seq',
+            "CREATE TABLE child (id INTEGER DEFAULT nextval('child_id_seq') NOT NULL, parent_id INTEGER DEFAULT NULL, PRIMARY KEY (id), CONSTRAINT FK_22B35429727ACA70 FOREIGN KEY (parent_id) REFERENCES parent (id))",
+            'CREATE INDEX IDX_22B35429727ACA70 ON child (parent_id)',
+        ], $statements);
+
+        $foreignKeys = $schemaManager->introspectTableForeignKeyConstraintsByUnquotedName('child');
+        Assert::assertCount(1, $foreignKeys);
+        $localColumns = [];
+        foreach ($foreignKeys[0]->getReferencingColumnNames() as $columnName) {
+            $localColumns[] = $columnName->getIdentifier()->getValue();
+        }
+        Assert::assertSame(['parent_id'], $localColumns);
+        Assert::assertSame('parent', $foreignKeys[0]->getReferencedTableName()->getUnqualifiedName()->getValue());
+    }
+
+    public function testIntrospectView(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement('CREATE TABLE t1 (id INTEGER)');
+        $connection->executeStatement('CREATE VIEW t1_view AS SELECT id FROM t1');
+
+        $names = [];
+        foreach ($schemaManager->introspectViews() as $view) {
+            $names[] = $view->getObjectName()->getUnqualifiedName()->getValue();
+        }
+        Assert::assertSame(['t1_view'], $names);
     }
 }
