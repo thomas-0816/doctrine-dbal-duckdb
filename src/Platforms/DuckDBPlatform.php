@@ -110,7 +110,7 @@ class DuckDBPlatform extends AbstractPlatform
         string $interval,
         DateIntervalUnit $unit,
     ): string {
-        return '(' . $date . ' ' . $operator . ' ' . $interval . ' ' . $unit->value . ')';
+        return '(' . $date . ' ' . $operator . ' INTERVAL ' . $interval . ' ' . $unit->value . ')';
     }
 
     public function getDateDiffExpression(string $date1, string $date2): string

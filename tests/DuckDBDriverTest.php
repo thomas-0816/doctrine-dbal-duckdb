@@ -23,7 +23,9 @@ use Psr\Log\AbstractLogger;
 use DuckDb\DBAL\Driver;
 use DuckDb\DBAL\PDO\Statement;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoConnectionException;
+use Doctrine\DBAL\Exception\SavepointsNotSupported;
 use Doctrine\DBAL\ParameterType;
+use Doctrine\DBAL\Platforms\TrimMode;
 use Doctrine\DBAL\Types\Types;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
 use DuckDb\DBAL\Schema\DuckDBTable;
@@ -349,6 +351,34 @@ final class DuckDBDriverTest extends TestCase
         Assert::assertSame('WITH cte_a AS (SELECT id FROM table_a WHERE id = :id) SELECT id FROM cte_b b', $queryBuilder->getSQL());
     }
 
+    public function testGetSequenceNextValSQL(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $platform = $connection->getDatabasePlatform();
+
+        $connection->executeStatement('CREATE SEQUENCE seq_t1');
+        $sql = $platform->getSequenceNextValSQL('seq_t1');
+        Assert::assertSame('SELECT NEXTVAL(\'seq_t1\')', $sql);
+        Assert::assertSame(1, $connection->fetchOne($sql));
+        Assert::assertSame(2, $connection->fetchOne($sql));
+    }
+
+    public function testGetEmptyIdentityInsertSQL(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $platform = $connection->getDatabasePlatform();
+
+        $connection->executeStatement('CREATE SEQUENCE seq_t1');
+        $connection->executeStatement("CREATE TABLE t1 (i1 integer NOT NULL DEFAULT nextval('seq_t1') PRIMARY KEY)");
+        $sql = $platform->getEmptyIdentityInsertSQL('"t1"', '"i1"');
+        Assert::assertSame('INSERT INTO "t1" ("i1") VALUES (DEFAULT)', $sql);
+        $connection->executeStatement($sql);
+        $connection->executeStatement($sql);
+        Assert::assertSame([1, 2], $connection->fetchFirstColumn('SELECT i1 FROM t1 ORDER BY i1'));
+    }
+
     public function testGetServerVersion(): void
     {
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
@@ -542,6 +572,109 @@ final class DuckDBDriverTest extends TestCase
 
         $connection = (new Driver())->connect(['dbname' => ':memory:']);
         $connection->rollBack();
+    }
+
+    public function testGetRegexpExpression(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $platform = $connection->getDatabasePlatform();
+
+        Assert::assertTrue($connection->fetchOne('SELECT ' . $platform->quoteStringLiteral('foo') . ' ' . $platform->getRegexpExpression() . ' ' . $platform->quoteStringLiteral('f.*')));
+        Assert::assertFalse($connection->fetchOne('SELECT ' . $platform->quoteStringLiteral('foo') . ' ' . $platform->getRegexpExpression() . ' ' . $platform->quoteStringLiteral('^b')));
+    }
+
+    public function testGetModExpression(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $platform = $connection->getDatabasePlatform();
+
+        Assert::assertSame(1, $connection->fetchOne('SELECT ' . $platform->getModExpression('10', '3')));
+        Assert::assertSame(-1, $connection->fetchOne('SELECT ' . $platform->getModExpression('-10', '3')));
+        Assert::assertSame(1.5, $connection->fetchOne('SELECT ' . $platform->getModExpression('17.5', '4')));
+    }
+
+    public function testGetTrimExpression(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $platform = $connection->getDatabasePlatform();
+
+        $str = $platform->quoteStringLiteral('  foo  ');
+        Assert::assertSame('foo', $connection->fetchOne('SELECT ' . $platform->getTrimExpression($str)));
+        Assert::assertSame('foo  ', $connection->fetchOne('SELECT ' . $platform->getTrimExpression($str, TrimMode::LEADING)));
+        Assert::assertSame('  foo', $connection->fetchOne('SELECT ' . $platform->getTrimExpression($str, TrimMode::TRAILING)));
+        Assert::assertSame('foo', $connection->fetchOne('SELECT ' . $platform->getTrimExpression($str, TrimMode::BOTH)));
+
+        $str = $platform->quoteStringLiteral('xxfooxx');
+        $char = $platform->quoteStringLiteral('x');
+        Assert::assertSame('foo', $connection->fetchOne('SELECT ' . $platform->getTrimExpression($str, TrimMode::UNSPECIFIED, $char)));
+        Assert::assertSame('fooxx', $connection->fetchOne('SELECT ' . $platform->getTrimExpression($str, TrimMode::LEADING, $char)));
+        Assert::assertSame('xxfoo', $connection->fetchOne('SELECT ' . $platform->getTrimExpression($str, TrimMode::TRAILING, $char)));
+        Assert::assertSame('foo', $connection->fetchOne('SELECT ' . $platform->getTrimExpression($str, TrimMode::BOTH, $char)));
+    }
+
+    public function testGetSubstringExpression(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $platform = $connection->getDatabasePlatform();
+
+        $str = $platform->quoteStringLiteral('hello');
+        Assert::assertSame('ello', $connection->fetchOne('SELECT ' . $platform->getSubstringExpression($str, '2')));
+        Assert::assertSame('ell', $connection->fetchOne('SELECT ' . $platform->getSubstringExpression($str, '2', '3')));
+    }
+
+    public function testGetLocateExpression(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $platform = $connection->getDatabasePlatform();
+
+        $str = $platform->quoteStringLiteral('hello');
+        $sub = $platform->quoteStringLiteral('l');
+        Assert::assertSame(3, $connection->fetchOne('SELECT ' . $platform->getLocateExpression($str, $sub)));
+        Assert::assertSame(3, $connection->fetchOne('SELECT ' . $platform->getLocateExpression($str, $sub, '1')));
+        Assert::assertSame(4, $connection->fetchOne('SELECT ' . $platform->getLocateExpression($str, $sub, '4')));
+        Assert::assertSame(0, $connection->fetchOne('SELECT ' . $platform->getLocateExpression($str, $platform->quoteStringLiteral('z'), '4')));
+    }
+
+    public function testGetDateArithmeticIntervalExpression(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $platform = $connection->getDatabasePlatform();
+
+        Assert::assertSame('2000-01-06 00:00:00', $connection->fetchOne('SELECT ' . $platform->getDateAddDaysExpression("DATE '2000-01-01'", '5')));
+        Assert::assertSame('1999-12-27 00:00:00', $connection->fetchOne('SELECT ' . $platform->getDateSubDaysExpression("DATE '2000-01-01'", '5')));
+        Assert::assertSame('2000-05-30 00:00:00', $connection->fetchOne('SELECT ' . $platform->getDateAddHourExpression("DATE '2000-01-01'", '3600')));
+        Assert::assertSame('2000-01-01 00:30:00', $connection->fetchOne('SELECT ' . $platform->getDateAddMinutesExpression("DATE '2000-01-01'", '30')));
+        Assert::assertSame('2000-01-01 12:01:30', $connection->fetchOne('SELECT ' . $platform->getDateAddSecondsExpression("TIMESTAMP '2000-01-01 12:00:00'", '90')));
+        Assert::assertSame('2000-01-15 00:00:00', $connection->fetchOne('SELECT ' . $platform->getDateAddWeeksExpression("DATE '2000-01-01'", '2')));
+        Assert::assertSame('2000-03-01 00:00:00', $connection->fetchOne('SELECT ' . $platform->getDateAddMonthExpression("DATE '2000-01-01'", '2')));
+        Assert::assertSame('1999-12-01 00:00:00', $connection->fetchOne('SELECT ' . $platform->getDateSubMonthExpression("DATE '2000-01-01'", '1')));
+        Assert::assertSame('2000-04-01 00:00:00', $connection->fetchOne('SELECT ' . $platform->getDateAddQuartersExpression("DATE '2000-01-01'", '1')));
+        Assert::assertSame('2001-01-01 00:00:00', $connection->fetchOne('SELECT ' . $platform->getDateAddYearsExpression("DATE '2000-01-01'", '1')));
+    }
+
+    public function testGetDateDiffExpression(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $platform = $connection->getDatabasePlatform();
+
+        Assert::assertSame(9, $connection->fetchOne('SELECT ' . $platform->getDateDiffExpression("DATE '2000-01-10'", "DATE '2000-01-01'")));
+        Assert::assertSame(-9, $connection->fetchOne('SELECT ' . $platform->getDateDiffExpression("DATE '2000-01-01'", "DATE '2000-01-10'")));
+    }
+
+    public function testSavepoints(): void
+    {
+        $this->expectException(SavepointsNotSupported::class);
+
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $connection->createSavepoint('foo');
     }
 
     private function setStdOutLogger(Configuration $config): void
