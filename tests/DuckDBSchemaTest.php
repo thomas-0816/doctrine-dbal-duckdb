@@ -5,8 +5,11 @@ namespace DuckDb\DBAL\Tests;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
+use Doctrine\DBAL\Schema\Exception\IndexNameInvalid;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
+use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Table;
+use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\Types\BlobType;
 use Doctrine\DBAL\Types\EnumType;
 use Doctrine\DBAL\Types\Types;
@@ -513,5 +516,88 @@ final class DuckDBSchemaTest extends TestCase
         $schemaManager = $connection->createSchemaManager();
 
         $schemaManager->dropForeignKey('fk_parent', 'child');
+    }
+
+    public function testAlterTableDropIndexedColumn(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement('CREATE TABLE t1 (id integer primary key, v0 varchar, v1 varchar)');
+        $connection->executeStatement('CREATE INDEX idx_v0 ON t1 (v0)');
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $toSchema->getTable('t1')->dropColumn('v0');
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
+        Assert::assertSame([
+            'DROP INDEX idx_v0',
+            'ALTER TABLE t1 DROP COLUMN v0',
+        ], $statements);
+    }
+
+    public function testAlterTableRenameIndexedColumn(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement('CREATE TABLE t1 (id integer primary key, v0 boolean)');
+        $connection->executeStatement('CREATE INDEX idx_v0 ON t1 (v0)');
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $table = $toSchema->getTable('t1');
+        $table->dropColumn('v0');
+        $table->addColumn('v0_2', 'boolean', ['notnull' => false]);
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
+        Assert::assertSame([
+            'DROP INDEX idx_v0',
+            'ALTER TABLE t1 RENAME COLUMN v0 TO v0_2',
+            'CREATE INDEX idx_v0 ON t1 (v0_2)',
+        ], $statements);
+    }
+
+    public function testAlterTableModifiedIndex(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement('CREATE TABLE t1 (id integer primary key, v0 varchar, v1 varchar)');
+        $connection->executeStatement('CREATE INDEX idx_v0 ON t1 (v0)');
+
+        $oldTable = $schemaManager->introspectTableByUnquotedName('t1');
+        $diff = new TableDiff($oldTable, modifiedIndexes: [new Index('idx_v0', ['v0', 'v1'])]);
+        $statements = $connection->getDatabasePlatform()->getAlterTableSQL($diff);
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
+        Assert::assertSame([
+            'DROP INDEX "idx_v0"',
+            'CREATE INDEX idx_v0 ON t1 (v0, v1)',
+        ], $statements);
+    }
+
+    public function testAlterTableAddIndexWithEmptyName(): void
+    {
+        $this->expectException(IndexNameInvalid::class);
+
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement('CREATE TABLE t1 (id integer primary key, v0 varchar)');
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema   = clone $fromSchema;
+        $toSchema->getTable('t1')->addIndex(['v0'], '');
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
     }
 }

@@ -10,6 +10,7 @@ use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Platforms\Keywords\KeywordList;
 use Doctrine\DBAL\Platforms\TrimMode;
 use Doctrine\DBAL\Schema\Column;
+use Doctrine\DBAL\Schema\Exception\IndexNameInvalid;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Identifier;
 use Doctrine\DBAL\Schema\Index;
@@ -275,6 +276,22 @@ class DuckDBPlatform extends AbstractPlatform
     protected function getVarbinaryTypeDeclarationSQLSnippet(?int $length): string
     {
         return 'BLOB';
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * DuckDB only supports creating indexes with an explicit name, so an empty
+     * index name is rejected when generating the index SQL instead of
+     * producing invalid `CREATE INDEX  ON ...` statements.
+     */
+    public function getCreateIndexSQL(Index $index, string $table): string
+    {
+        if ($index->getName() === '') {
+            throw IndexNameInvalid::new('');
+        }
+
+        return parent::getCreateIndexSQL($index, $table);
     }
 
     /**
