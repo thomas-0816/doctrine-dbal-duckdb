@@ -25,7 +25,10 @@ use DuckDb\DBAL\PDO\Statement;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoConnectionException;
 use Doctrine\DBAL\Exception\SavepointsNotSupported;
 use Doctrine\DBAL\ParameterType;
+use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Platforms\TrimMode;
+use Doctrine\DBAL\Schema\ForeignKeyConstraint;
+use Doctrine\DBAL\TransactionIsolationLevel;
 use Doctrine\DBAL\Types\Types;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
 use DuckDb\DBAL\Schema\DuckDBTable;
@@ -351,34 +354,6 @@ final class DuckDBDriverTest extends TestCase
         Assert::assertSame('WITH cte_a AS (SELECT id FROM table_a WHERE id = :id) SELECT id FROM cte_b b', $queryBuilder->getSQL());
     }
 
-    public function testGetSequenceNextValSQL(): void
-    {
-        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
-        $connection = DriverManager::getConnection($connectionParams);
-        $platform = $connection->getDatabasePlatform();
-
-        $connection->executeStatement('CREATE SEQUENCE seq_t1');
-        $sql = $platform->getSequenceNextValSQL('seq_t1');
-        Assert::assertSame('SELECT NEXTVAL(\'seq_t1\')', $sql);
-        Assert::assertSame(1, $connection->fetchOne($sql));
-        Assert::assertSame(2, $connection->fetchOne($sql));
-    }
-
-    public function testGetEmptyIdentityInsertSQL(): void
-    {
-        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
-        $connection = DriverManager::getConnection($connectionParams);
-        $platform = $connection->getDatabasePlatform();
-
-        $connection->executeStatement('CREATE SEQUENCE seq_t1');
-        $connection->executeStatement("CREATE TABLE t1 (i1 integer NOT NULL DEFAULT nextval('seq_t1') PRIMARY KEY)");
-        $sql = $platform->getEmptyIdentityInsertSQL('"t1"', '"i1"');
-        Assert::assertSame('INSERT INTO "t1" ("i1") VALUES (DEFAULT)', $sql);
-        $connection->executeStatement($sql);
-        $connection->executeStatement($sql);
-        Assert::assertSame([1, 2], $connection->fetchFirstColumn('SELECT i1 FROM t1 ORDER BY i1'));
-    }
-
     public function testGetServerVersion(): void
     {
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
@@ -675,6 +650,94 @@ final class DuckDBDriverTest extends TestCase
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
         $connection = DriverManager::getConnection($connectionParams);
         $connection->createSavepoint('foo');
+    }
+
+    public function testGetSequenceNextValSQL(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $platform = $connection->getDatabasePlatform();
+
+        $connection->executeStatement('CREATE SEQUENCE seq_t1');
+        $sql = $platform->getSequenceNextValSQL('seq_t1');
+        Assert::assertSame(1, $connection->fetchOne($sql));
+        Assert::assertSame(2, $connection->fetchOne($sql));
+    }
+
+    public function testGetEmptyIdentityInsertSQL(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $platform = $connection->getDatabasePlatform();
+
+        $connection->executeStatement('CREATE SEQUENCE seq_t1');
+        $connection->executeStatement("CREATE TABLE t1 (i1 integer NOT NULL DEFAULT nextval('seq_t1') PRIMARY KEY)");
+        $sql = $platform->getEmptyIdentityInsertSQL('"t1"', '"i1"');
+        $connection->executeStatement($sql);
+        $connection->executeStatement($sql);
+        Assert::assertSame([1, 2], $connection->fetchFirstColumn('SELECT i1 FROM t1 ORDER BY i1'));
+    }
+
+    public function testGetCreateDatabaseSQL(): void
+    {
+        $this->expectException(NotSupported::class);
+
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $connection->getDatabasePlatform()->getCreateDatabaseSQL('db1');
+    }
+
+    public function testGetDropDatabaseSQL(): void
+    {
+        $this->expectException(NotSupported::class);
+
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $connection->getDatabasePlatform()->getDropDatabaseSQL('db1');
+    }
+
+    public function testGetSetTransactionIsolationSQL(): void
+    {
+        $this->expectException(NotSupported::class);
+
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $connection->getDatabasePlatform()->getSetTransactionIsolationSQL(TransactionIsolationLevel::READ_COMMITTED);
+    }
+
+    public function testSupportsIdentityColumns(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+
+        Assert::assertTrue($connection->getDatabasePlatform()->supportsIdentityColumns());
+    }
+
+    public function testSupportsColumnCollation(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+
+        Assert::assertTrue($connection->getDatabasePlatform()->supportsColumnCollation());
+    }
+
+    public function testGetCreateForeignKeySQL(): void
+    {
+        $this->expectException(NotSupported::class);
+
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $foreignKey = new ForeignKeyConstraint(['parent_id'], 'parent', ['id'], 'fk_parent');
+        $connection->getDatabasePlatform()->getCreateForeignKeySQL($foreignKey, 'child');
+    }
+
+    public function testGetDropForeignKeySQL(): void
+    {
+        $this->expectException(NotSupported::class);
+
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $connection->getDatabasePlatform()->getDropForeignKeySQL('fk_parent', 'child');
     }
 
     private function setStdOutLogger(Configuration $config): void

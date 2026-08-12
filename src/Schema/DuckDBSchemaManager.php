@@ -130,11 +130,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         // @phpstan-ignore missingType.checkedException
         $currentSchema = $this->determineCurrentSchemaName();
 
-        if ($table['schema_name'] === $currentSchema) {
-            return $table['table_name'];
-        }
-
-        return $table['schema_name'] . '.' . $table['table_name'];
+        return ($table['schema_name'] === $currentSchema) ? $table['table_name'] : $table['schema_name'] . '.' . $table['table_name'];
     }
 
     /**
