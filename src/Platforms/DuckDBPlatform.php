@@ -445,17 +445,37 @@ class DuckDBPlatform extends AbstractPlatform
                     $droppedSequenceName = $this->autoIncrementSequenceName($droppedTable);
                     $createdSequenceName = $this->autoIncrementSequenceName($createdTable);
                     $droppedSequence = array_filter($droppedSequences, fn(Sequence $droppedSequence)
-                        => $droppedSequence->getShortestName($droppedTable->getNamespaceName()) === $droppedSequenceName);
+                        => $droppedSequence->getObjectName()->toString() === $droppedSequenceName);
                     $createdSequence = array_filter($createdSequences, fn(Sequence $createdSequence)
-                        => $createdSequence->getShortestName($createdTable->getNamespaceName()) === $createdSequenceName && $createdSequence->getInitialValue() === 1);
-                    if ($createdSequence !== []) {
+                        => $createdSequence->getObjectName()->toString() === $createdSequenceName && $createdSequence->getInitialValue() === 1);
+                    if ($createdSequence !== [] && $droppedSequence !== []) {
                         $sql[] = sprintf(
                             '-- SELECT setval(%s, currval(%s), true)',
-                            $this->quoteStringLiteral($createdSequence[0]->getObjectName()->getUnqualifiedName()->getValue()),
-                            $this->quoteStringLiteral($droppedSequence[0]->getObjectName()->getUnqualifiedName()->getValue())
+                            $this->quoteStringLiteral($createdSequence[0]->getObjectName()->toString()),
+                            $this->quoteStringLiteral($droppedSequence[0]->getObjectName()->toString())
                         );
                     }
                     $renamedTables[] = [$droppedTableKey, $createdTableKey];
+                }
+            }
+        }
+        foreach ($diff->getAlteredTables() as $tableDiff) {
+            foreach ($tableDiff->getChangedColumns() as $columnDiff) {
+                if ($columnDiff->hasNameChanged()) {
+                    $oldTable        = $tableDiff->getOldTable();
+                    $oldSequenceName = $this->autoIncrementSequenceNameForColumn($oldTable, $columnDiff->getOldColumn()->getName());
+                    $newSequenceName = $this->autoIncrementSequenceNameForColumn($oldTable, $columnDiff->getNewColumn()->getName());
+                    $droppedSequence = array_filter($droppedSequences, fn(Sequence $droppedSequence)
+                        => $droppedSequence->getObjectName()->toString() === $oldSequenceName);
+                    $createdSequence = array_filter($createdSequences, fn(Sequence $createdSequence)
+                        => $createdSequence->getObjectName()->toString() === $newSequenceName && $createdSequence->getInitialValue() === 1);
+                    if ($droppedSequence !== [] && $createdSequence !== []) {
+                        $sql[] = sprintf(
+                            '-- SELECT setval(%s, currval(%s), true)',
+                            $this->quoteStringLiteral($createdSequence[0]->getObjectName()->toString()),
+                            $this->quoteStringLiteral($droppedSequence[0]->getObjectName()->toString())
+                        );
+                    }
                 }
             }
         }
@@ -466,8 +486,8 @@ class DuckDBPlatform extends AbstractPlatform
         foreach ($renamedTables as [$droppedTableKey, $createdTableKey]) {
             $droppedTable = $droppedTables[$droppedTableKey];
             $createdTable = $createdTables[$createdTableKey];
-            $sql[] = 'ALTER TABLE ' . $droppedTable->getObjectName()->getUnqualifiedName()->getValue()
-                . ' RENAME TO ' . $createdTable->getObjectName()->getUnqualifiedName()->getValue();
+            $sql[] = 'ALTER TABLE ' . $droppedTable->getObjectName()->toString()
+                . ' RENAME TO ' . $createdTable->getObjectName()->toString();
             unset($droppedTables[$droppedTableKey], $createdTables[$createdTableKey]);
         }
         $sql = array_merge(
@@ -495,24 +515,33 @@ class DuckDBPlatform extends AbstractPlatform
             if (count($pkColumns) === 1) {
                 $column = $table->getColumn($pkColumns[0]);
 
-                return sprintf(
-                    '%s_%s_seq',
-                    $table->getShortestName($table->getNamespaceName()),
-                    $column->getShortestName($table->getNamespaceName()),
-                );
+                return $this->autoIncrementSequenceNameForColumn($table, $column->getName());
             }
         }
         return null;
     }
 
+    /**
+     * Returns the name of the sequence following the {@code <table>_<column>_seq}
+     * naming convention for the given column.
+     */
+    private function autoIncrementSequenceNameForColumn(Table $table, string $columnName): string
+    {
+        return sprintf(
+            '%s_%s_seq',
+            $table->getObjectName()->toString(),
+            $columnName,
+        );
+    }
+
     private function hasIdenticalTableSQL(Table $droppedTable, Table $createdTable): bool
     {
         $normalizeDropped = implode("\n", array_map(
-            static fn(string $statement): string => str_replace($droppedTable->getObjectName()->getUnqualifiedName()->getValue(), '', strtolower($statement)),
+            static fn(string $statement): string => str_replace($droppedTable->getObjectName()->toString(), '', strtolower($statement)),
             $this->getCreateTableSQL($droppedTable),
         ));
         $normalizeCreated = implode("\n", array_map(
-            static fn(string $statement): string => str_replace($createdTable->getObjectName()->getUnqualifiedName()->getValue(), '', strtolower($statement)),
+            static fn(string $statement): string => str_replace($createdTable->getObjectName()->toString(), '', strtolower($statement)),
             $this->getCreateTableSQL($createdTable),
         ));
 
@@ -528,14 +557,6 @@ class DuckDBPlatform extends AbstractPlatform
         $table = $diff->getOldTable();
         $tableNameSQL = $table->getQuotedName($this);
 
-        foreach ($diff->getDroppedIndexes() as $index) {
-            if ($index->isPrimary()) {
-                throw new NotSupported(sprintf(
-                    'Dropping the primary key of table "%s" is not supported by DuckDB.',
-                    $diff->getOldTable()->getName(),
-                ));
-            }
-        }
         foreach ($diff->getAddedColumns() as $addedColumn) {
             // DuckDB does not support adding a NOT NULL column in a single statement,
             // so the NOT NULL constraint is applied with a separate statement.
