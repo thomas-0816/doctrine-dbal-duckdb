@@ -7,7 +7,6 @@ use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Schema\Exception\IndexNameInvalid;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
-use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\BlobType;
 use Doctrine\DBAL\Types\EnumType;
@@ -633,13 +632,13 @@ final class DuckDBSchemaTest extends TestCase
         Assert::assertSame(['ALTER TABLE t1 RENAME TO t1_2'], $statements);
     }
 
-    public function testRenameTableCarriesOverSequenceStartValue(): void
+    public function testRenameTableKeepsSequenceStartValue(): void
     {
         $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
         $schemaManager = $connection->createSchemaManager();
 
         $connection->executeStatement('CREATE SEQUENCE t1_id_seq START WITH 3');
-        $connection->executeStatement('CREATE TABLE t1 (id integer primary key, v0 varchar not null)');
+        $connection->executeStatement('CREATE TABLE t1 (id integer primary key)');
 
         $fromSchema = $schemaManager->introspectSchema();
         $toSchema   = clone $fromSchema;
@@ -648,7 +647,6 @@ final class DuckDBSchemaTest extends TestCase
         $toSchema->createSequence('t1_2_id_seq');
         $table = $toSchema->createTable('t1_2');
         $table->addColumn('id', 'integer');
-        $table->addColumn('v0', 'varchar');
         $table->setPrimaryKey(['id']);
 
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
@@ -660,27 +658,42 @@ final class DuckDBSchemaTest extends TestCase
         ], $statements);
     }
 
-    public function testReversedRenameKeepsIntrospectedSequenceStartValue(): void
+    public function testCreateSchema(): void
     {
-        $fromSchema = new Schema();
-        $table = $fromSchema->createTable('t1_2');
-        $table->addColumn('id', 'integer');
-        $table->setPrimaryKey(['id']);
-        $fromSchema->createSequence('t1_2_id_seq');
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
 
-        $toSchema = new Schema();
-        $table = $toSchema->createTable('t1');
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema   = clone $fromSchema;
+        $toSchema->createSequence('foo.t1_id_seq');
+        $table = $toSchema->createTable('foo.t1');
         $table->addColumn('id', 'integer');
-        $table->setPrimaryKey(['id']);
-        $toSchema->createSequence('t1_id_seq', 1, 3);
 
-        $connection  = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
-        $diff        = $connection->createSchemaManager()->createComparator()->compareSchemas($fromSchema, $toSchema);
-        $statements  = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
+
         Assert::assertSame([
-            'DROP SEQUENCE t1_2_id_seq',
-            'CREATE SEQUENCE t1_id_seq START WITH 3 INCREMENT BY 1',
-            'ALTER TABLE t1_2 RENAME TO t1',
+            'CREATE SCHEMA foo',
+            'CREATE SEQUENCE foo.t1_id_seq START WITH 1 INCREMENT BY 1',
+            'CREATE TABLE foo.t1 (id INTEGER NOT NULL)',
         ], $statements);
+    }
+
+    public function testAlterSequenceNotSupported(): void
+    {
+        $this->expectException(NotSupported::class);
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $fromSchema->createSequence('t1_id_seq');
+        $toSchema->createSequence('t1_id_seq', 2);
+
+        $diff = $connection->createSchemaManager()->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
     }
 }

@@ -488,22 +488,19 @@ class DuckDBPlatform extends AbstractPlatform
     private function autoIncrementSequenceName(Table $table): ?string
     {
         $primaryKey = $table->getPrimaryKey();
-        if ($primaryKey === null) {
-            return null;
+        if ($primaryKey !== null) {
+            $pkColumns = $primaryKey->getColumns();
+            if (count($pkColumns) === 1) {
+                $column = $table->getColumn($pkColumns[0]);
+
+                return sprintf(
+                    '%s_%s_seq',
+                    $table->getShortestName($table->getNamespaceName()),
+                    $column->getShortestName($table->getNamespaceName()),
+                );
+            }
         }
-
-        $pkColumns = $primaryKey->getColumns();
-        if (count($pkColumns) !== 1) {
-            return null;
-        }
-
-        $column = $table->getColumn($pkColumns[0]);
-
-        return sprintf(
-            '%s_%s_seq',
-            $table->getShortestName($table->getNamespaceName()),
-            $column->getShortestName($table->getNamespaceName()),
-        );
+        return null;
     }
 
     private function hasIdenticalTableSQL(Table $droppedTable, Table $createdTable): bool
