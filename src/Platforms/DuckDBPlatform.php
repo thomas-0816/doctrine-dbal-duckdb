@@ -449,7 +449,8 @@ class DuckDBPlatform extends AbstractPlatform
                     $createdSequence = array_filter($createdSequences, fn(Sequence $createdSequence)
                         => $createdSequence->getShortestName($createdTable->getNamespaceName()) === $createdSequenceName && $createdSequence->getInitialValue() === 1);
                     if ($createdSequence !== []) {
-                        $sql[] = sprintf('SELECT setval(%s, currval(%s), true)',
+                        $sql[] = sprintf(
+                            'SELECT setval(%s, currval(%s), true)',
                             $this->quoteStringLiteral($createdSequence[0]->getObjectName()->getUnqualifiedName()->getValue()),
                             $this->quoteStringLiteral($droppedSequence[0]->getObjectName()->getUnqualifiedName()->getValue())
                         );
