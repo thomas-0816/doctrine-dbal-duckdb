@@ -110,10 +110,7 @@ class DuckDBSchemaManager extends AbstractSchemaManager
      */
     protected function _getPortableTableDefinition(array $table): string
     {
-        // @phpstan-ignore missingType.checkedException
-        $currentSchema = $this->determineCurrentSchemaName();
-
-        return ($table['schema_name'] === $currentSchema) ? $table['table_name'] : $table['schema_name'] . '.' . $table['table_name'];
+        return ($table['schema_name'] === $this->determineCurrentSchemaName()) ? $table['table_name'] : $table['schema_name'] . '.' . $table['table_name'];
     }
 
     /**
@@ -205,7 +202,10 @@ class DuckDBSchemaManager extends AbstractSchemaManager
 
     protected function _getPortableSequenceDefinition(array $sequence): Sequence
     {
-        return new Sequence($sequence['schema_name'] . '.' . $sequence['sequence_name'], (int) $sequence['increment_by'], (int) $sequence['start_value']);
+        $name = ($sequence['schema_name'] === $this->determineCurrentSchemaName())
+            ? $sequence['sequence_name'] : $sequence['schema_name'] . '.' . $sequence['sequence_name'];
+
+        return new Sequence($name, (int) $sequence['increment_by'], (int) $sequence['start_value']);
     }
 
     protected function determineCurrentSchemaName(): ?string
