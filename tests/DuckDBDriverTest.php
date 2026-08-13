@@ -262,20 +262,22 @@ final class DuckDBDriverTest extends TestCase
         Assert::assertSame(2, $connection->fetchOne('INSERT INTO t2 VALUES (DEFAULT) RETURNING *'));
     }
 
-    public function testDropTableDropsAutoincrementSequence(): void
+    public function testDropTableKeepsAutoincrementSequence(): void
     {
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
         $connection = DriverManager::getConnection($connectionParams);
         $schemaManager = $connection->createSchemaManager();
 
+        $connection->executeStatement('CREATE SEQUENCE t1_id_seq');
+
         $table = new DuckDBTable('t1');
-        $table->addColumn('id', Types::INTEGER, ['autoincrement' => true]);
+        $table->addColumn('id', Types::INTEGER, ['default' => "nextval('t1_id_seq')"]);
         $table->setPrimaryKey(['id']);
         $schemaManager->createTable($table);
         Assert::assertCount(1, $schemaManager->introspectSequences());
         $schemaManager->dropTable('t1');
-        Assert::assertSame([], $schemaManager->introspectSequences());
         Assert::assertSame([], $schemaManager->introspectTableNames());
+        Assert::assertCount(1, $schemaManager->introspectSequences());
 
         $plain = new DuckDBTable('t2');
         $plain->addColumn('id', Types::INTEGER);

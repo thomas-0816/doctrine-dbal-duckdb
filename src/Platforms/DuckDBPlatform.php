@@ -33,9 +33,6 @@ use DuckDb\DBAL\Schema\DuckDBType;
 /**
  * The DuckDBPlatform class describes the specifics and dialects of the DuckDB
  * database platform.
- *
- * @phpstan-import-type ColumnProperties from Column
- * @phpstan-import-type CreateTableParameters from AbstractPlatform
  */
 class DuckDBPlatform extends AbstractPlatform
 {
@@ -215,8 +212,6 @@ class DuckDBPlatform extends AbstractPlatform
      */
     protected function _getCommonIntegerTypeDeclarationSQL(array $column): string
     {
-        // DuckDB has no AUTOINCREMENT keyword. Auto-increment columns are implemented
-        // with sequences whose nextval default is injected in _getCreateTableSQL().
         return '';
     }
 
@@ -227,18 +222,7 @@ class DuckDBPlatform extends AbstractPlatform
     {
         $this->validateCreateTableOptions($options, __METHOD__);
 
-        $sql = [];
-        foreach ($columns as $index => $column) {
-            if (empty($column['autoincrement'])) {
-                continue;
-            }
-
-            $sequenceName = trim($name, '"') . '_' . trim($column['name'], '"') . '_seq';
-            $columns[$index]['default'] = 'nextval(' . $this->quoteStringLiteral($sequenceName) . ')';
-            $sql[] = 'CREATE SEQUENCE IF NOT EXISTS ' . $sequenceName;
-        }
         $columnListSql = $this->getColumnDeclarationListSQL($columns);
-
         if (! empty($options['uniqueConstraints'])) {
             foreach ($options['uniqueConstraints'] as $definition) {
                 $columnListSql .= ', ' . $this->getUniqueConstraintDeclarationSQL($definition);
@@ -253,6 +237,7 @@ class DuckDBPlatform extends AbstractPlatform
             }
         }
 
+        $sql = [];
         $sql[] = 'CREATE TABLE ' . $name . ' (' . $columnListSql . ')';
 
         if (! empty($options['indexes'])) {
@@ -440,27 +425,48 @@ class DuckDBPlatform extends AbstractPlatform
             $sql[] = $this->getAlterSequenceSQL($sequence);
         }
 
-        foreach ($diff->getDroppedSequences() as $sequence) {
+        $createdTables    = $diff->getCreatedTables();
+        $droppedTables    = $diff->getDroppedTables();
+        $createdSequences = $diff->getCreatedSequences();
+        $droppedSequences = $diff->getDroppedSequences();
+        $renamedTables    = [];
+        // A dropped table whose create SQL is case-insensitively identical to a created
+        // one is reported as a rename instead of a create/drop pair. Renaming a table
+        // renames its auto-increment sequence along with it. DuckDB cannot rename
+        // sequences, so the sequence is recreated with the properties of the original
+        // one (e.g. its start value) carried over, avoiding the reuse of existing IDs.
+        foreach ($droppedTables as $droppedTableKey => $droppedTable) {
+            foreach ($createdTables as $createdTableKey => $createdTable) {
+                if ($this->hasIdenticalTableSQL($droppedTable, $createdTable)) {
+                    $droppedSequenceName = $this->autoIncrementSequenceName($droppedTable);
+                    $createdSequenceName = $this->autoIncrementSequenceName($createdTable);
+                    $droppedSequence = array_filter($droppedSequences, fn(Sequence $droppedSequence)
+                        => $droppedSequence->getShortestName($droppedTable->getNamespaceName()) === $droppedSequenceName);
+                    $createdSequence = array_filter($createdSequences, fn(Sequence $createdSequence)
+                        => $createdSequence->getShortestName($createdTable->getNamespaceName()) === $createdSequenceName && $createdSequence->getInitialValue() === 1);
+                    if ($createdSequence !== []) {
+                        $createdSequences[0]->setInitialValue($droppedSequence[0]->getInitialValue());
+                        $createdSequences[0]->setAllocationSize($droppedSequence[0]->getAllocationSize());
+                    }
+                    $renamedTables[] = [$droppedTableKey, $createdTableKey];
+                }
+            }
+        }
+
+        foreach ($droppedSequences as $sequence) {
             $sql[] = $this->getDropSequenceSQL($sequence->getQuotedName($this));
         }
 
-        foreach ($diff->getCreatedSequences() as $sequence) {
+        foreach ($createdSequences as $sequence) {
             $sql[] = $this->getCreateSequenceSQL($sequence);
         }
-        $createdTables = $diff->getCreatedTables();
-        $droppedTables = $diff->getDroppedTables();
-        // A dropped table whose create SQL is case-insensitively identical to a created
-        // one is reported as a rename instead of a create/drop pair.
-        foreach ($droppedTables as $droppedTableKey => $droppedTable) {
-            foreach ($createdTables as $createdTableKey => $createdTable) {
-                if (! $this->hasIdenticalTableSQL($droppedTable, $createdTable)) {
-                    continue;
-                }
-                $sql[] = 'ALTER TABLE ' . $droppedTable->getObjectName()->getUnqualifiedName()->getValue()
-                    . ' RENAME TO ' . $createdTable->getObjectName()->getUnqualifiedName()->getValue();
-                unset($droppedTables[$droppedTableKey], $createdTables[$createdTableKey]);
-                break;
-            }
+
+        foreach ($renamedTables as [$droppedTableKey, $createdTableKey]) {
+            $droppedTable = $droppedTables[$droppedTableKey];
+            $createdTable = $createdTables[$createdTableKey];
+            $sql[] = 'ALTER TABLE ' . $droppedTable->getObjectName()->getUnqualifiedName()->getValue()
+                . ' RENAME TO ' . $createdTable->getObjectName()->getUnqualifiedName()->getValue();
+            unset($droppedTables[$droppedTableKey], $createdTables[$createdTableKey]);
         }
         $sql = array_merge(
             $sql,
@@ -474,14 +480,40 @@ class DuckDBPlatform extends AbstractPlatform
         return $sql;
     }
 
+    /**
+     * Returns the name of the sequence backing the auto-increment column of a
+     * single-column primary key, following the {@code <table>_<column>_seq}
+     * naming convention.
+     */
+    private function autoIncrementSequenceName(Table $table): ?string
+    {
+        $primaryKey = $table->getPrimaryKey();
+        if ($primaryKey === null) {
+            return null;
+        }
+
+        $pkColumns = $primaryKey->getColumns();
+        if (count($pkColumns) !== 1) {
+            return null;
+        }
+
+        $column = $table->getColumn($pkColumns[0]);
+
+        return sprintf(
+            '%s_%s_seq',
+            $table->getShortestName($table->getNamespaceName()),
+            $column->getShortestName($table->getNamespaceName()),
+        );
+    }
+
     private function hasIdenticalTableSQL(Table $droppedTable, Table $createdTable): bool
     {
         $normalizeDropped = implode("\n", array_map(
-            static fn(string $statement): string => str_replace($droppedTable->getObjectName()->getUnqualifiedName()->getValue(), '', strtolower($statement)) ?? $statement,
+            static fn(string $statement): string => str_replace($droppedTable->getObjectName()->getUnqualifiedName()->getValue(), '', strtolower($statement)),
             $this->getCreateTableSQL($droppedTable),
         ));
         $normalizeCreated = implode("\n", array_map(
-            static fn(string $statement): string => str_replace($createdTable->getObjectName()->getUnqualifiedName()->getValue(), '', strtolower($statement)) ?? $statement,
+            static fn(string $statement): string => str_replace($createdTable->getObjectName()->getUnqualifiedName()->getValue(), '', strtolower($statement)),
             $this->getCreateTableSQL($createdTable),
         ));
 
@@ -511,15 +543,6 @@ class DuckDBPlatform extends AbstractPlatform
             $column = $addedColumn->toArray();
             $notNull        = ! empty($column['notnull']);
             $column['notnull'] = false;
-
-            if (! empty($column['autoincrement'])) {
-                // DuckDB has no AUTOINCREMENT keyword, so an added auto-increment
-                // column is backed by a sequence whose nextval default is injected,
-                // mirroring _getCreateTableSQL().
-                $sequenceName = trim($table->getQuotedName($this), '"') . '_' . trim($addedColumn->getQuotedName($this), '"') . '_seq';
-                $column['default'] = 'nextval(' . $this->quoteStringLiteral($sequenceName) . ')';
-                $sql[] = 'CREATE SEQUENCE IF NOT EXISTS ' . $sequenceName;
-            }
 
             $sql[] = 'ALTER TABLE ' . $tableNameSQL . ' ADD COLUMN ' . $this->getColumnDeclarationSQL(
                 $addedColumn->getQuotedName($this),
@@ -575,12 +598,7 @@ class DuckDBPlatform extends AbstractPlatform
 
     private function getTypeSQLDeclaration(Column $column): string
     {
-        $type = $column->getType();
-
-        $columnDefinition = $column->toArray();
-        $columnDefinition['autoincrement'] = false;
-
-        return $type->getSQLDeclaration($columnDefinition, $this);
+        return $column->getType()->getSQLDeclaration($column->toArray(), $this);
     }
 
     /** @return list<string> */

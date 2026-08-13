@@ -7,6 +7,7 @@ use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Schema\Exception\IndexNameInvalid;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
+use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\BlobType;
 use Doctrine\DBAL\Types\EnumType;
@@ -28,8 +29,9 @@ final class DuckDBSchemaTest extends TestCase
 
         $fromSchema = $schemaManager->introspectSchema();
         $toSchema = clone $fromSchema;
+        $sequence = $toSchema->createSequence('t1_id_seq');
         $table = $toSchema->createTable('t1');
-        $table->addColumn('id', 'integer', ['autoincrement' => true, 'unsigned' => true]);
+        $table->addColumn('id', 'integer', ['default' => "nextval('t1_id_seq')", 'unsigned' => true]);
         $table->addColumn('v2', 'json', ['comment' => 'foo']);
         $table->addColumn('v3', 'guid');
         $table->addColumn('v4', 'string', ['length' => 42]);
@@ -59,7 +61,7 @@ final class DuckDBSchemaTest extends TestCase
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
 
         Assert::assertSame([
-            'CREATE SEQUENCE IF NOT EXISTS t1_id_seq',
+            'CREATE SEQUENCE t1_id_seq START WITH 1 INCREMENT BY 1',
             "CREATE TABLE t1 (id UINTEGER DEFAULT nextval('t1_id_seq') NOT NULL, v2 JSON NOT NULL, v3 UUID NOT NULL, v4 VARCHAR NOT NULL, v5 DATE NOT NULL, v6 TIMESTAMP NOT NULL, v7 TIMESTAMP WITH TIME ZONE NOT NULL, v8 TIME NOT NULL, v9 BLOB NOT NULL, v10 BLOB NOT NULL, v11 ENUM('a', 'b', 'c') NOT NULL, v12 geometry NOT NULL, v13 variant NOT NULL, v14 SMALLINT NOT NULL, v15 BOOLEAN NOT NULL, v16 BIGINT NOT NULL, v17 bignum NOT NULL, v18 hugeint NOT NULL, v19 union(num INTEGER, str VARCHAR) NOT NULL, v20 map(INTEGER, VARCHAR) NOT NULL, v21 struct(a STRUCT(x INTEGER), b VARCHAR) NOT NULL, descr VARCHAR DEFAULT NULL, CONSTRAINT UNIQ_5B54AE374DFDC UNIQUE (descr), PRIMARY KEY (id))",
             "COMMENT ON TABLE t1 IS 'bar'",
             "COMMENT ON COLUMN t1.v2 IS 'foo'",
@@ -91,8 +93,9 @@ final class DuckDBSchemaTest extends TestCase
 
         $fromSchema = $schemaManager->introspectSchema();
         $toSchema = clone $fromSchema;
+        $sequence = $toSchema->createSequence('t1_id_seq');
         $table = $toSchema->getTable('t1');
-        $table->addColumn('id', 'integer', ['autoincrement' => true]);
+        $table->addColumn('id', 'integer', ['default' => "nextval('t1_id_seq')"]);
         $table->addColumn('v2', 'json', ['comment' => 'foo']);
         $table->addColumn('v3', 'guid');
         $table->addColumn('v4', 'string', ['length' => 42, 'default' => 'foo']);
@@ -116,7 +119,7 @@ final class DuckDBSchemaTest extends TestCase
             $connection->executeStatement($statement);
         }
         Assert::assertSame([
-            'CREATE SEQUENCE IF NOT EXISTS t1_id_seq',
+            'CREATE SEQUENCE t1_id_seq START WITH 1 INCREMENT BY 1',
             "ALTER TABLE t1 ADD COLUMN id INTEGER DEFAULT nextval('t1_id_seq')",
             'ALTER TABLE t1 ALTER COLUMN id SET NOT NULL',
             'ALTER TABLE t1 ADD COLUMN v2 JSON DEFAULT NULL',
@@ -156,20 +159,22 @@ final class DuckDBSchemaTest extends TestCase
         Assert::assertSame(['ALTER TABLE t1 RENAME COLUMN v14 TO v14_2'], $statements);
     }
 
-    public function testDropTableDropsAutoincrementSequence(): void
+    public function testDropTableKeepsAutoincrementSequence(): void
     {
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
         $connection = DriverManager::getConnection($connectionParams);
         $schemaManager = $connection->createSchemaManager();
 
+        $connection->executeStatement('CREATE SEQUENCE t1_id_seq');
+
         $table = new DuckDBTable('t1');
-        $table->addColumn('id', Types::INTEGER, ['autoincrement' => true]);
+        $table->addColumn('id', Types::INTEGER, ['default' => "nextval('t1_id_seq')"]);
         $table->setPrimaryKey(['id']);
         $schemaManager->createTable($table);
         Assert::assertCount(1, $schemaManager->introspectSequences());
         Assert::assertCount(1, $schemaManager->introspectTableNames());
         $schemaManager->dropTable('main.t1');
-        Assert::assertSame([], $schemaManager->introspectSequences());
+        Assert::assertCount(1, $schemaManager->introspectSequences());
         Assert::assertSame([], $schemaManager->introspectTableNames());
 
         $plain = new DuckDBTable('t2');
@@ -211,7 +216,7 @@ final class DuckDBSchemaTest extends TestCase
         Assert::assertSame('i1', $columns[0]->getObjectName()->getIdentifier()->getValue());
         Assert::assertTrue($columns[0]->getUnsigned());
         Assert::assertTrue($columns[0]->getNotnull());
-        Assert::assertTrue($columns[0]->getAutoincrement());
+        Assert::assertFalse($columns[0]->getAutoincrement());
         Assert::assertSame('foo', $columns[0]->getComment());
         Assert::assertInstanceOf(DuckDBType::class, $columns[0]->getType());
         Assert::assertSame('uinteger', $columns[0]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
@@ -279,29 +284,35 @@ final class DuckDBSchemaTest extends TestCase
         $schemaManager = $connection->createSchemaManager();
 
         $schema = clone $schemaManager->introspectSchema();
+        $sequence = $schema->createSequence('parent_id_seq');
         $parent = $schema->createTable('parent');
-        $parent->addColumn('id', Types::INTEGER, ['autoincrement' => true]);
+        $parent->addColumn('id', Types::INTEGER, ['default' => "nextval('parent_id_seq')"]);
         $parent->setPrimaryKey(['id']);
+        $statement = $connection->getDatabasePlatform()->getCreateSequenceSQL($sequence);
         $statements = $connection->getDatabasePlatform()->getCreateTableSQL($parent);
+        $schemaManager->createSequence($sequence);
         $schemaManager->createTable($parent);
 
+        Assert::assertSame('CREATE SEQUENCE parent_id_seq START WITH 1 INCREMENT BY 1', $statement);
         Assert::assertSame([
-            'CREATE SEQUENCE IF NOT EXISTS parent_id_seq',
             "CREATE TABLE parent (id INTEGER DEFAULT nextval('parent_id_seq') NOT NULL, PRIMARY KEY (id))",
         ], $statements);
 
         $fromSchema = $schemaManager->introspectSchema();
         $toSchema = clone $fromSchema;
+        $sequence = $schema->createSequence('child_id_seq');
         $child = $toSchema->createTable('child');
-        $child->addColumn('id', Types::INTEGER, ['autoincrement' => true]);
+        $child->addColumn('id', Types::INTEGER, ['default' => "nextval('child_id_seq')"]);
         $child->addColumn('parent_id', Types::INTEGER, ['notnull' => false]);
         $child->setPrimaryKey(['id']);
         $child->addForeignKeyConstraint('parent', ['parent_id'], ['id']);
+        $statement = $connection->getDatabasePlatform()->getCreateSequenceSQL($sequence);
         $statements = $connection->getDatabasePlatform()->getCreateTableSQL($child);
+        $schemaManager->createSequence($sequence);
         $schemaManager->createTable($child);
 
+        Assert::assertSame('CREATE SEQUENCE child_id_seq START WITH 1 INCREMENT BY 1', $statement);
         Assert::assertSame([
-            'CREATE SEQUENCE IF NOT EXISTS child_id_seq',
             "CREATE TABLE child (id INTEGER DEFAULT nextval('child_id_seq') NOT NULL, parent_id INTEGER DEFAULT NULL, PRIMARY KEY (id), CONSTRAINT FK_22B35429727ACA70 FOREIGN KEY (parent_id) REFERENCES parent (id))",
             'CREATE INDEX IDX_22B35429727ACA70 ON child (parent_id)',
         ], $statements);
@@ -620,5 +631,56 @@ final class DuckDBSchemaTest extends TestCase
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         Assert::assertSame(['ALTER TABLE t1 RENAME TO t1_2'], $statements);
+    }
+
+    public function testRenameTableCarriesOverSequenceStartValue(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement('CREATE SEQUENCE t1_id_seq START WITH 3');
+        $connection->executeStatement('CREATE TABLE t1 (id integer primary key, v0 varchar not null)');
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema   = clone $fromSchema;
+        $toSchema->dropTable('t1');
+        $toSchema->dropSequence('t1_id_seq');
+        $toSchema->createSequence('t1_2_id_seq');
+        $table = $toSchema->createTable('t1_2');
+        $table->addColumn('id', 'integer');
+        $table->addColumn('v0', 'varchar');
+        $table->setPrimaryKey(['id']);
+
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        Assert::assertSame([
+            'DROP SEQUENCE t1_id_seq',
+            'CREATE SEQUENCE t1_2_id_seq START WITH 3 INCREMENT BY 1',
+            'ALTER TABLE t1 RENAME TO t1_2',
+        ], $statements);
+    }
+
+    public function testReversedRenameKeepsIntrospectedSequenceStartValue(): void
+    {
+        $fromSchema = new Schema();
+        $table = $fromSchema->createTable('t1_2');
+        $table->addColumn('id', 'integer');
+        $table->setPrimaryKey(['id']);
+        $fromSchema->createSequence('t1_2_id_seq');
+
+        $toSchema = new Schema();
+        $table = $toSchema->createTable('t1');
+        $table->addColumn('id', 'integer');
+        $table->setPrimaryKey(['id']);
+        $toSchema->createSequence('t1_id_seq', 1, 3);
+
+        $connection  = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $diff        = $connection->createSchemaManager()->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements  = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        Assert::assertSame([
+            'DROP SEQUENCE t1_2_id_seq',
+            'CREATE SEQUENCE t1_id_seq START WITH 3 INCREMENT BY 1',
+            'ALTER TABLE t1_2 RENAME TO t1',
+        ], $statements);
     }
 }
