@@ -41,16 +41,16 @@ final class DuckDBSchemaTest extends TestCase
         $table->addColumn('v9', 'binary', ['fixed' => true]);
         $table->addColumn('v10', 'binary');
         $table->addColumn('v11', 'enum', ['values' => ['a', 'b', 'c']]);
-        $table->addColumn('v12', 'geometry');
-        $table->addColumn('v13', 'variant');
+        $table->addColumn('v12', 'string', ['columndefinition' => 'geometry']);
+        $table->addColumn('v13', 'json', ['columndefinition' => 'variant']);
         $table->addColumn('v14', 'smallint');
         $table->addColumn('v15', 'boolean');
         $table->addColumn('v16', 'bigint');
-        $table->addColumn('v17', 'bignum');
-        $table->addColumn('v18', 'hugeint');
-        $table->addColumn('v19', 'union(num INTEGER, str VARCHAR)');
-        $table->addColumn('v20', 'map(INTEGER, VARCHAR)');
-        $table->addColumn('v21', 'struct(a STRUCT(x INTEGER), b VARCHAR)');
+        $table->addColumn('v17', 'string', ['columndefinition' => 'bignum']);
+        $table->addColumn('v18', 'string', ['columndefinition' => 'hugeint']);
+        $table->addColumn('v19', 'string', ['columndefinition' => 'union(num INTEGER, str VARCHAR)']);
+        $table->addColumn('v20', 'json', ['columndefinition' => 'map(INTEGER, VARCHAR)']);
+        $table->addColumn('v21', 'json', ['columndefinition' => 'struct(a STRUCT(x INTEGER), b VARCHAR)']);
         $table->addColumn('descr', 'text', ['notnull' => false]);
         $table->addUniqueConstraint(['descr']);
         $table->setPrimaryKey(['id']);
@@ -101,14 +101,14 @@ final class DuckDBSchemaTest extends TestCase
         $table->addColumn('v7', 'datetimetz', ['notnull' => false]);
         $table->addColumn('v8', 'binary', ['notnull' => false]);
         $table->addColumn('v10', 'enum', ['values' => ['a', 'b', 'c']]);
-        $table->addColumn('v11', 'geometry', ['notnull' => false]);
-        $table->addColumn('v12', 'variant', ['notnull' => false]);
+        $table->addColumn('v11', 'string', ['columndefinition' => 'geometry', 'notnull' => false]);
+        $table->addColumn('v12', 'json', ['columndefinition' => 'variant', 'notnull' => false]);
         $table->addColumn('v14', 'boolean', ['notnull' => false]);
-        $table->addColumn('v16', 'bignum', ['notnull' => false]);
-        $table->addColumn('v17', 'hugeint', ['notnull' => false]);
-        $table->addColumn('v18', 'union(num INTEGER, str VARCHAR)', ['notnull' => false]);
-        $table->addColumn('v19', 'map(INTEGER, VARCHAR)', ['notnull' => false]);
-        $table->addColumn('v20', 'struct(a STRUCT(x INTEGER), b VARCHAR)', ['notnull' => false]);
+        $table->addColumn('v16', 'string', ['columndefinition' => 'bignum', 'notnull' => false]);
+        $table->addColumn('v17', 'string', ['columndefinition' => 'hugeint', 'notnull' => false]);
+        $table->addColumn('v18', 'string', ['columndefinition' => 'union(num INTEGER, str VARCHAR)', 'notnull' => false]);
+        $table->addColumn('v19', 'json', ['columndefinition' => 'map(INTEGER, VARCHAR)', 'notnull' => false]);
+        $table->addColumn('v20', 'json', ['columndefinition' => 'struct(a STRUCT(x INTEGER), b VARCHAR)', 'notnull' => false]);
         $table->addColumn('descr', 'text', ['notnull' => false]);
         $table->setPrimaryKey(['id']);
         $table->setComment('bar');
@@ -250,7 +250,7 @@ final class DuckDBSchemaTest extends TestCase
         $fromSchema = $originalSchema;
         $toSchema = clone $fromSchema;
         $table = $toSchema->getTable('t2');
-        $table->addColumn('v2', 'varchar[]')->setDefault('[21]');
+        $table->addColumn('v2', 'json', ['columndefinition' => 'varchar[]'])->setDefault('[21]');
         $table->addUniqueConstraint(['v2']); // no-op
         $table->getColumn('ia')->setType(new DuckDBType('varchar[]'));
         $table->getColumn('ia')->setNotnull(true)->setComment('foo')->setDefault(null);
@@ -393,7 +393,7 @@ final class DuckDBSchemaTest extends TestCase
 
         $table = $schemaManager->introspectSchema()->createTable('t1');
         $table->addColumn('id', 'integer');
-        $table->addColumn('v0', 'varchar');
+        $table->addColumn('v0', 'string');
         $table->addIndex(['v0'], 'idx_v0');
         $schemaManager->createTable($table);
 
@@ -606,7 +606,7 @@ final class DuckDBSchemaTest extends TestCase
         $toSchema->dropTable('t1');
         $table = $toSchema->createTable('t1_2');
         $table->addColumn('id', 'integer');
-        $table->addColumn('v0', 'varchar');
+        $table->addColumn('v0', 'string');
         $table->setPrimaryKey(['id']);
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
@@ -625,7 +625,7 @@ final class DuckDBSchemaTest extends TestCase
         $toSchema->dropTable('t1');
         $table = $toSchema->createTable('t1_2');
         $table->addColumn('id', 'integer');
-        $table->addColumn('v0', 'varchar');
+        $table->addColumn('v0', 'string');
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         Assert::assertSame(['ALTER TABLE t1 RENAME TO t1_2'], $statements);

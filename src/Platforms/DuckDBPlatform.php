@@ -218,6 +218,21 @@ class DuckDBPlatform extends AbstractPlatform
     /**
      * {@inheritDoc}
      */
+    public function getColumnDeclarationSQL(string $name, array $column): string
+    {
+        $charset = ! empty($column['charset']) ? ' ' . $this->getColumnCharsetDeclarationSQL($column['charset']) : '';
+        $default = $this->getDefaultValueDeclarationSQL($column);
+        $notnull = ! empty($column['notnull']) ? ' NOT NULL' : '';
+        $collation = ! empty($column['collation']) ? ' ' . $this->getColumnCollationDeclarationSQL($column['collation']) : '';
+        $typeDecl    = $column['columnDefinition'] ?? $column['type']->getSQLDeclaration($column, $this);
+        $declaration = $typeDecl . $charset . $default . $notnull . $collation;
+
+        return $name . ' ' . $declaration;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     protected function _getCreateTableSQL(string $name, array $columns, array $options = []): array
     {
         $this->validateCreateTableOptions($options, __METHOD__);
