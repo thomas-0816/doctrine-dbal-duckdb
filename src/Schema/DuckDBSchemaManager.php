@@ -44,13 +44,12 @@ class DuckDBSchemaManager extends AbstractSchemaManager
 
     public function listSchemaNames(): array
     {
-        return $this->connection->fetchFirstColumn(
-            'SELECT schema_name
+        return $this->connection->fetchFirstColumn("
+            SELECT DISTINCT schema_name
             FROM duckdb_schemas()
-            WHERE database_name = current_database() AND NOT internal
-            ORDER BY schema_name
-            '
-        );
+            WHERE database_name = current_database()
+            ORDER BY schema_name != 'main', schema_name
+        ");
     }
 
     public function createComparator(): Comparator
