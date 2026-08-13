@@ -476,12 +476,16 @@ class DuckDBPlatform extends AbstractPlatform
 
     private function hasIdenticalTableSQL(Table $droppedTable, Table $createdTable): bool
     {
-        $normalize = fn(Table $table): string => implode("\n", array_map(
-            static fn(string $statement): string => preg_replace('/^create table \S+/', '', strtolower($statement)) ?? $statement,
-            $this->getCreateTableSQL($table),
+        $normalizeDropped = implode("\n", array_map(
+            static fn(string $statement): string => str_replace($droppedTable->getObjectName()->getUnqualifiedName()->getValue(), '', strtolower($statement)) ?? $statement,
+            $this->getCreateTableSQL($droppedTable),
+        ));
+        $normalizeCreated = implode("\n", array_map(
+            static fn(string $statement): string => str_replace($createdTable->getObjectName()->getUnqualifiedName()->getValue(), '', strtolower($statement)) ?? $statement,
+            $this->getCreateTableSQL($createdTable),
         ));
 
-        return $normalize($droppedTable) === $normalize($createdTable);
+        return $normalizeDropped === $normalizeCreated;
     }
 
     /**
