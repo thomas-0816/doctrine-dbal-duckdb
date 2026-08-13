@@ -719,4 +719,49 @@ final class DuckDBSchemaTest extends TestCase
         $diff = $connection->createSchemaManager()->createComparator()->compareSchemas($fromSchema, $toSchema);
         $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
     }
+
+    public function testAlterTableRenameAutoIncrementColumn(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement('CREATE SEQUENCE t1_id_seq');
+        $connection->executeStatement('CREATE TABLE t1 (id integer NOT NULL primary key, v0 boolean)');
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema = clone $fromSchema;
+        $toSchema->dropSequence('t1_id_seq');
+        $toSchema->createSequence('t1_id2_seq');
+        $table = $toSchema->getTable('t1');
+        $table->dropColumn('id');
+        $table->addColumn('id2', 'integer');
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
+        Assert::assertSame([
+            'CREATE SEQUENCE t1_id2_seq START WITH 1 INCREMENT BY 1',
+            "-- SELECT setval('t1_id2_seq', currval('t1_id_seq'), true)",
+            'DROP SEQUENCE t1_id_seq',
+            'ALTER TABLE t1 RENAME COLUMN id TO id2',
+        ], $statements);
+    }
+
+    public function testDropColumnDropsPrimaryKeyOnThatColumn(): void
+    {
+        $table = new DuckDBTable('t1');
+        $table->addColumn('id', Types::INTEGER);
+        $table->addColumn('name', Types::STRING);
+        $table->setPrimaryKey(['id']);
+        $table->dropColumn('id');
+        Assert::assertNull($table->getPrimaryKeyConstraint());
+
+        $table = new DuckDBTable('t1');
+        $table->addColumn('id', Types::INTEGER);
+        $table->addColumn('name', Types::STRING);
+        $table->setPrimaryKey(['id']);
+        $table->dropColumn('name');
+        Assert::assertNotNull($table->getPrimaryKeyConstraint());
+    }
 }
