@@ -632,6 +632,24 @@ final class DuckDBSchemaTest extends TestCase
         Assert::assertSame(['ALTER TABLE t1 RENAME TO t1_2'], $statements);
     }
 
+    public function testRenameTableWithoutPrimaryKey(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement('CREATE TABLE t1 (id integer not null, v0 varchar not null)');
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema   = clone $fromSchema;
+        $toSchema->dropTable('t1');
+        $table = $toSchema->createTable('t1_2');
+        $table->addColumn('id', 'integer');
+        $table->addColumn('v0', 'varchar');
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        Assert::assertSame(['ALTER TABLE t1 RENAME TO t1_2'], $statements);
+    }
+
     public function testRenameTableKeepsSequenceStartValue(): void
     {
         $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
