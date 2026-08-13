@@ -602,4 +602,23 @@ final class DuckDBSchemaTest extends TestCase
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
     }
+
+    public function testRenameTable(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+
+        $connection->executeStatement('CREATE TABLE t1 (id integer primary key, v0 varchar not null)');
+
+        $fromSchema = $schemaManager->introspectSchema();
+        $toSchema   = clone $fromSchema;
+        $toSchema->dropTable('t1');
+        $table = $toSchema->createTable('t1_2');
+        $table->addColumn('id', 'integer');
+        $table->addColumn('v0', 'varchar');
+        $table->setPrimaryKey(['id']);
+        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
+        $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        Assert::assertSame(['ALTER TABLE t1 RENAME TO t1_2'], $statements);
+    }
 }

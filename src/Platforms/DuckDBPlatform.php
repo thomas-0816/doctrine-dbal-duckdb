@@ -15,7 +15,9 @@ use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Identifier;
 use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Name\UnquotedIdentifierFolding;
+use Doctrine\DBAL\Schema\SchemaDiff;
 use Doctrine\DBAL\Schema\Sequence;
+use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\TableDiff;
 use Doctrine\DBAL\SQL\Builder\DefaultSelectSQLBuilder;
 use Doctrine\DBAL\SQL\Builder\SelectSQLBuilder;
@@ -423,6 +425,63 @@ class DuckDBPlatform extends AbstractPlatform
     {
         // DuckDB does not support dropping constraints with ALTER TABLE.
         throw NotSupported::new(__METHOD__);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getAlterSchemaSQL(SchemaDiff $diff): array
+    {
+        $sql = [];
+        foreach ($diff->getCreatedSchemas() as $schema) {
+            $sql[] = $this->getCreateSchemaSQL($schema);
+        }
+        foreach ($diff->getAlteredSequences() as $sequence) {
+            $sql[] = $this->getAlterSequenceSQL($sequence);
+        }
+
+        foreach ($diff->getDroppedSequences() as $sequence) {
+            $sql[] = $this->getDropSequenceSQL($sequence->getQuotedName($this));
+        }
+
+        foreach ($diff->getCreatedSequences() as $sequence) {
+            $sql[] = $this->getCreateSequenceSQL($sequence);
+        }
+        $createdTables = $diff->getCreatedTables();
+        $droppedTables = $diff->getDroppedTables();
+        // A dropped table whose create SQL is case-insensitively identical to a created
+        // one is reported as a rename instead of a create/drop pair.
+        foreach ($droppedTables as $droppedTableKey => $droppedTable) {
+            foreach ($createdTables as $createdTableKey => $createdTable) {
+                if (! $this->hasIdenticalTableSQL($droppedTable, $createdTable)) {
+                    continue;
+                }
+                $sql[] = 'ALTER TABLE ' . $droppedTable->getObjectName()->getUnqualifiedName()->getValue()
+                    . ' RENAME TO ' . $createdTable->getObjectName()->getUnqualifiedName()->getValue();
+                unset($droppedTables[$droppedTableKey], $createdTables[$createdTableKey]);
+                break;
+            }
+        }
+        $sql = array_merge(
+            $sql,
+            $this->getCreateTablesSQL(array_values($createdTables)),
+            $this->getDropTablesSQL(array_values($droppedTables)),
+        );
+        foreach ($diff->getAlteredTables() as $tableDiff) {
+            $sql = array_merge($sql, $this->getAlterTableSQL($tableDiff));
+        }
+
+        return $sql;
+    }
+
+    private function hasIdenticalTableSQL(Table $droppedTable, Table $createdTable): bool
+    {
+        $normalize = fn(Table $table): string => implode("\n", array_map(
+            static fn(string $statement): string => preg_replace('/^create table \S+/', '', strtolower($statement)) ?? $statement,
+            $this->getCreateTableSQL($table),
+        ));
+
+        return $normalize($droppedTable) === $normalize($createdTable);
     }
 
     /**
