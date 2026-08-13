@@ -669,9 +669,13 @@ final class DuckDBSchemaTest extends TestCase
 
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
+        foreach ($statements as $statement) {
+            $connection->executeStatement($statement);
+        }
+
         Assert::assertSame([
             'CREATE SEQUENCE t1_2_id_seq START WITH 1 INCREMENT BY 1',
-            "SELECT setval('t1_2_id_seq', currval('t1_id_seq'), true)",
+            "-- SELECT setval('t1_2_id_seq', currval('t1_id_seq'), true)",
             'DROP SEQUENCE t1_id_seq',
             'ALTER TABLE t1 RENAME TO t1_2',
         ], $statements);
