@@ -430,6 +430,10 @@ class DuckDBPlatform extends AbstractPlatform
         $createdSequences = $diff->getCreatedSequences();
         $droppedSequences = $diff->getDroppedSequences();
         $renamedTables    = [];
+
+        foreach ($createdSequences as $sequence) {
+            $sql[] = $this->getCreateSequenceSQL($sequence);
+        }
         // A dropped table whose create SQL is case-insensitively identical to a created
         // one is reported as a rename instead of a create/drop pair. Renaming a table
         // renames its auto-increment sequence along with it. DuckDB cannot rename
@@ -445,20 +449,17 @@ class DuckDBPlatform extends AbstractPlatform
                     $createdSequence = array_filter($createdSequences, fn(Sequence $createdSequence)
                         => $createdSequence->getShortestName($createdTable->getNamespaceName()) === $createdSequenceName && $createdSequence->getInitialValue() === 1);
                     if ($createdSequence !== []) {
-                        $createdSequences[0]->setInitialValue($droppedSequence[0]->getInitialValue());
-                        $createdSequences[0]->setAllocationSize($droppedSequence[0]->getAllocationSize());
+                        $sql[] = sprintf('SELECT setval(%s, currval(%s), true)',
+                            $this->quoteStringLiteral($createdSequence[0]->getObjectName()->getUnqualifiedName()->getValue()),
+                            $this->quoteStringLiteral($droppedSequence[0]->getObjectName()->getUnqualifiedName()->getValue())
+                        );
                     }
                     $renamedTables[] = [$droppedTableKey, $createdTableKey];
                 }
             }
         }
-
         foreach ($droppedSequences as $sequence) {
             $sql[] = $this->getDropSequenceSQL($sequence->getQuotedName($this));
-        }
-
-        foreach ($createdSequences as $sequence) {
-            $sql[] = $this->getCreateSequenceSQL($sequence);
         }
 
         foreach ($renamedTables as [$droppedTableKey, $createdTableKey]) {
