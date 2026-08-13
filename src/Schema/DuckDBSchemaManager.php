@@ -76,31 +76,13 @@ class DuckDBSchemaManager extends AbstractSchemaManager
 
     public function dropTable(string $name): void
     {
-        // DuckDB does not allow dropping a sequence that a table still depends on,
-        // so the table is dropped first and its autoincrement sequences afterwards.
         $table  = trim($name, '"');
         $schema = null;
         if (str_contains($table, '.')) {
             [$schema, $table] = explode('.', $table, 2);
         }
-        $params = $schema !== null ? [$table, $schema] : [$table];
-        $sql = '
-            SELECT column_default
-            FROM duckdb_columns()
-            WHERE database_name = current_database() AND NOT internal AND table_name = ?'
-            . ($schema !== null ? 'AND schema_name = ?' : '');
-        $sequences = [];
-        foreach ($this->connection->fetchFirstColumn($sql, $params) as $default) {
-            if (preg_match("/nextval\('([^']+)'\)/", $default ?? '', $matches)) {
-                $sequences[] = $matches[1];
-            }
-        }
 
         parent::dropTable($name);
-
-        foreach ($sequences as $sequence) {
-            $this->connection->executeStatement('DROP SEQUENCE IF EXISTS ' . $sequence);
-        }
     }
 
     /**
@@ -120,18 +102,14 @@ class DuckDBSchemaManager extends AbstractSchemaManager
     {
         $type = $this->platform->getDoctrineType($tableColumn['type']);
 
-        $autoincrement = (bool) ($tableColumn['autoincrement'] ?? false);
         $unsigned = (bool) preg_match('/^u(?:tinyint|smallint|integer|bigint|hugeint)$/', strtolower($tableColumn['type']));
         $precision = isset($tableColumn['precision']) ? (int) $tableColumn['precision'] : null;
         $scale     = isset($tableColumn['scale']) ? (int) $tableColumn['scale'] : null;
 
         $options = [
-            // The sequence default of an auto-increment column is an implementation
-            // detail and not reported, so it does not produce a default change diff.
-            'autoincrement' => $autoincrement,
             'unsigned'  => $unsigned,
             'notnull'   => (bool) $tableColumn['notnull'],
-            'default'   => $autoincrement ? null : $this->parseDefaultExpression($tableColumn['dflt_value'] ?? null),
+            'default'   => $this->parseDefaultExpression($tableColumn['dflt_value'] ?? null),
         ];
         if ($precision !== null) {
             $options['precision'] = $precision;
@@ -246,20 +224,6 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         ";
 
         return $this->connection->executeQuery($sql, $params);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    protected function fetchTableColumns(string $databaseName, ?string $tableName = null): array
-    {
-        $result = [];
-        foreach (parent::fetchTableColumns($databaseName, $tableName) as $row) {
-            $row['autoincrement'] = str_contains($row['dflt_value'] ?? '', 'nextval(');
-            $result[] = $row;
-        }
-
-        return $result;
     }
 
     /**
