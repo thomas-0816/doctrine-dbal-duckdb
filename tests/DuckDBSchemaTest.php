@@ -6,6 +6,7 @@ use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Schema\Exception\IndexNameInvalid;
+use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\BlobType;
@@ -13,7 +14,6 @@ use Doctrine\DBAL\Types\EnumType;
 use Doctrine\DBAL\Types\Types;
 use DuckDb\DBAL\Driver;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
-use DuckDb\DBAL\Schema\DuckDBTable;
 use DuckDb\DBAL\Schema\DuckDBType;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
@@ -166,7 +166,7 @@ final class DuckDBSchemaTest extends TestCase
 
         $connection->executeStatement('CREATE SEQUENCE t1_id_seq');
 
-        $table = new DuckDBTable('t1');
+        $table = $schemaManager->introspectSchema()->createTable('t1');
         $table->addColumn('id', Types::INTEGER, ['default' => "nextval('t1_id_seq')"]);
         $table->setPrimaryKey(['id']);
         $schemaManager->createTable($table);
@@ -176,7 +176,7 @@ final class DuckDBSchemaTest extends TestCase
         Assert::assertCount(1, $schemaManager->introspectSequences());
         Assert::assertSame([], $schemaManager->introspectTableNames());
 
-        $plain = new DuckDBTable('t2');
+        $plain = $schemaManager->introspectSchema()->createTable('t2');
         $plain->addColumn('id', Types::INTEGER);
         $schemaManager->createTable($plain);
         $schemaManager->dropTable('t2');
@@ -750,20 +750,34 @@ final class DuckDBSchemaTest extends TestCase
         ], $statements);
     }
 
-    public function testDropColumnDropsPrimaryKeyOnThatColumn(): void
+    public function testDropColumn(): void
     {
-        $table = new DuckDBTable('t1');
-        $table->addColumn('id', Types::INTEGER);
-        $table->addColumn('name', Types::STRING);
-        $table->setPrimaryKey(['id']);
-        $table->dropColumn('id');
-        Assert::assertNull($table->getPrimaryKeyConstraint());
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
 
-        $table = new DuckDBTable('t1');
-        $table->addColumn('id', Types::INTEGER);
-        $table->addColumn('name', Types::STRING);
-        $table->setPrimaryKey(['id']);
-        $table->dropColumn('name');
-        Assert::assertNotNull($table->getPrimaryKeyConstraint());
+        $oldTable = $schemaManager->introspectSchema()->createTable('t1');
+        $oldTable->addColumn('id', Types::INTEGER);
+        $oldTable->addColumn('name', Types::STRING);
+        $oldTable->setPrimaryKey(['id']);
+
+        $newTable = $schemaManager->introspectSchema()->createTable('t1');
+        $newTable->addColumn('id', Types::INTEGER);
+        $newTable->addColumn('name', Types::STRING);
+        $newTable->setPrimaryKey(['id']);
+        $newTable->dropColumn('id');
+
+        $diff = $schemaManager->createComparator()->compareTables($oldTable, $newTable);
+        Assert::assertSame(['id'], array_values(array_map(static fn(Column $column): string => $column->getName(), $diff->getDroppedColumns())));
+        Assert::assertCount(1, $diff->getDroppedIndexes());
+        Assert::assertTrue($diff->getDroppedIndexes()[0]->isPrimary());
+
+        $newTable = $schemaManager->introspectSchema()->createTable('t1');
+        $newTable->addColumn('id', Types::INTEGER);
+        $newTable->addColumn('name', Types::STRING);
+        $newTable->setPrimaryKey(['id']);
+        $newTable->dropColumn('name');
+
+        $diff = $schemaManager->createComparator()->compareTables($oldTable, $newTable);
+        Assert::assertSame([], $diff->getDroppedIndexes());
     }
 }
