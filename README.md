@@ -37,13 +37,13 @@ DuckDB extensions work the same way as they do in DuckDB CLI.
 
 change .env
 
-```
+```ini
 DATABASE_URL="duckdb://_/%kernel.project_dir%/var/db.duckdb"
 ```
 
 change config/packages/doctrine.yaml
 
-```
+```yaml
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
@@ -52,6 +52,9 @@ doctrine:
         options:
             !php/const PDO::DUCKDB_ATTR_CONFIG:
                 TimeZone: 'Europe/Berlin'
+                # threads: 4 # max. number of threads
+                # memory_limit: '4GB' # max. memory usage
+                # access_mode: 'read_only' # open database file read-only
     orm:
         identity_generation_preferences:
             DuckDb\DBAL\Platforms\DuckDBPlatform: sequence
@@ -59,19 +62,67 @@ doctrine:
 
 after changing doctrine.yaml, clear the cache:
 
-```
+```bash
 rm -rf var/cache
+```
+
+Connection test:
+
+```bash
+php bin/console dbal:run-sql 'SELECT version()
 ```
 
 ## In-Memory Database
 
 For testing or reading external files, use the special in-memory database in .env:
 
-```
+```ini
 DATABASE_URL="duckdb::memory:"
 ```
 
 ## Usage
+
+Create a new entity `Product` with attributes `name` (string) and `price` (float):
+
+```bash
+echo -e "name\nstring\n\n\nprice\nfloat\n\n\n" | php bin/console make:entity Product
+
+# php bin/console make:migration
+# php bin/console doctrine:migrations:migrate -vv
+```
+
+Create a new Product:
+
+```php
+$product = new Product();
+$product->setName('foo');
+$product->setPrice(12.34);
+$entityManager->persist($product);
+$entityManager->flush();
+```
+
+Query, update and delete a Product:
+
+```php
+$repository = $entityManager->getRepository(Product::class);
+$product = $repository->findOneBy(['name' => 'foo']);
+$product->setName('bar');
+$entityManager->flush();
+
+dump($repository->findOneBy(['name' => 'bar']));
+
+# ^ App\Entity\Product^ {#216
+#   -id: 1
+#   -name: "bar"
+#   -price: 12.34
+# }
+
+$entityManager->remove($product);
+$entityManager->flush();
+
+dump($product = $repository->findOneBy(['name' => 'bar']));
+# null
+```
 
 work in progress ...
 
