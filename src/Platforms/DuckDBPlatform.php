@@ -730,7 +730,7 @@ class DuckDBPlatform extends AbstractPlatform
     }
 
     /**
-     * @return array<non-empty-string, non-empty-string>
+     * @return array<string, string>
      */
     private function getDiffColumnNameMap(TableDiff $diff): array
     {
@@ -739,7 +739,7 @@ class DuckDBPlatform extends AbstractPlatform
         $map = [];
 
         foreach ($oldTable->getColumns() as $column) {
-            $columnName                   = $column->getName();
+            $columnName = $column->getName();
             $map[strtolower($columnName)] = $columnName;
         }
 
@@ -748,16 +748,15 @@ class DuckDBPlatform extends AbstractPlatform
         }
 
         foreach ($diff->getChangedColumns() as $columnDiff) {
-            $columnName                   = $columnDiff->getOldColumn()->getName();
+            $columnName = $columnDiff->getOldColumn()->getName();
             $map[strtolower($columnName)] = $columnDiff->getNewColumn()->getName();
         }
 
         foreach ($diff->getAddedColumns() as $column) {
-            $columnName                   = $column->getName();
+            $columnName = $column->getName();
             $map[strtolower($columnName)] = $columnName;
         }
 
-        // @phpstan-ignore return.type
         return $map;
     }
 

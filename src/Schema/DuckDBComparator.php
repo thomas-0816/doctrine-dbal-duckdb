@@ -13,9 +13,20 @@ final class DuckDBComparator extends Comparator
 {
     /**
      * {@inheritDoc}
+     *
+     * Additionally drops the primary key from the new table when its only column
+     * was dropped.
      */
     public function compareTables(Table $oldTable, Table $newTable): TableDiff
     {
+        $primaryKey = $newTable->getPrimaryKey();
+        if ($primaryKey !== null && count($primaryKey->getIndexedColumns()) === 1) {
+            $primaryKeyColumnName = $primaryKey->getIndexedColumns()[0]->getColumnName()->getIdentifier()->getValue();
+            if (! $newTable->hasColumn($primaryKeyColumnName)) {
+                $newTable->dropPrimaryKey();
+            }
+        }
+
         $diff = parent::compareTables($oldTable, $newTable);
 
         return new DuckDBTableDiff(

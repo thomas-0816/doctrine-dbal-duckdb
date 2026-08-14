@@ -3,5 +3,5 @@ parameters:
     paths:
         - src
     treatPhpDocTypesAsCertain: false
-    reportUnmatchedIgnoredErrors: false
-    checkStrictPrintfPlaceholderTypes: false
+    reportUnmatchedIgnoredErrors: true
+    checkStrictPrintfPlaceholderTypes: true

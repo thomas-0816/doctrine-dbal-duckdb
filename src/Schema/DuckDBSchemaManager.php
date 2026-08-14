@@ -8,9 +8,7 @@ use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\Comparator;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Index;
-use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Sequence;
-use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\View;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Types\EnumType;
@@ -21,27 +19,6 @@ use DuckDb\DBAL\Platforms\DuckDBPlatform;
  */
 class DuckDBSchemaManager extends AbstractSchemaManager
 {
-    /**
-     * {@inheritDoc}
-     */
-    public function listTables(): array
-    {
-        $configuration = $this->createSchemaConfig()->toTableConfiguration();
-
-        return array_map(
-            static fn(Table $table): DuckDBTable => new DuckDBTable(
-                $table->getName(),
-                $table->getColumns(),
-                $table->getIndexes(),
-                $table->getUniqueConstraints(),
-                $table->getForeignKeys(),
-                $table->getOptions(),
-                $configuration,
-            ),
-            parent::listTables(),
-        );
-    }
-
     public function listSchemaNames(): array
     {
         return $this->connection->fetchFirstColumn("
@@ -55,11 +32,6 @@ class DuckDBSchemaManager extends AbstractSchemaManager
     public function createComparator(): Comparator
     {
         return new DuckDBComparator($this->platform);
-    }
-
-    public function introspectSchema(): Schema
-    {
-        return new DuckDBSchema($this->listTables(), $this->listSequences(), $this->createSchemaConfig(), $this->listSchemaNames());
     }
 
     public function createForeignKey(ForeignKeyConstraint $foreignKey, string $table): void
