@@ -135,7 +135,7 @@ $query = $entityManager->createQuery("
 
 dump($query->getResult());
 
-# array [
+# array
 #   App\Entity\Product
 #     -id: 1
 #     -name: "foo"
@@ -144,7 +144,41 @@ dump($query->getResult());
 
 ## Select with Query Builder
 
-work in progress ...
+```php
+$query = $entityManager->createQueryBuilder()
+    ->select('p')
+    ->from(Product::class, 'p')
+    ->where('p.name = :name')
+    ->setParameter('name', 'foo')
+    ->getQuery();
+dump($query->execute());
+
+# array
+#   App\Entity\Product
+#     -id: 1
+#     -name: "foo"
+#     -price: 12.34
+```
+
+## Select with SQL
+
+```php
+$sql = '
+    SELECT *
+    FROM product
+    WHERE name = :name
+';
+$result = $entityManager->getConnection()->executeQuery($sql, ['name' => 'foo']);
+dump($result->fetchAllAssociative());
+
+# array
+#   array
+#     "id" => 1
+#     "name" => "foo"
+#     "price" => 12.34
+```
+
+## work in progress ...
 
 ## Performance
 
