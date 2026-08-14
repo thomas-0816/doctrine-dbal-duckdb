@@ -75,8 +75,8 @@ jobs:
           cat .env
           composer dump-autoload -o
           composer show
-          echo -e "name\nstring\n255\nno\nprice\nfloat\nno\n\n" | php bin/console make:entity Product
-          sudo strace php bin/console make:migration --no-interaction
+          echo -e "name\nstring\n255\nno\nprice\nfloat\nno\n\n" | sudo strace php bin/console make:entity Product
+          php bin/console make:migration --no-interaction
           php bin/console doctrine:migrations:migrate --no-interaction -vv
           vendor/bin/psysh <<'EOF'
             (new Symfony\Component\Dotenv\Dotenv())->bootEnv(__DIR__."/.env");
