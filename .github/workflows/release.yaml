@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  symfony:
+    name: Symfony
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+#          - ubuntu-24.04-arm
+#          - macos-14
+#          - windows-2022
+        php-version:
+          - 8.2
+          - 8.3
+          - 8.4
+          - 8.5
+        thread-safety:
+          - nts
+        symfony-version:
+          - 7
+          - 8
+        exclude:
+          - php-version: 8.2
+            synfony-version: 8
+          - php-version: 8.3
+            synfony-version: 8
+    steps:
+      - name: Setup PHP ${{ matrix.php-version }} ${{ matrix.thread-safety }}
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+          tools: composer, pie
+          extensions: fileinfo
+        env:
+          phpts: ${{ matrix.thread-safety }}
+      - name: Test
+        env:
+          symfony_version: ${{ matrix.symfony-version }}
+        shell: bash
+        run: |
+          uname -a
+          php -v
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            pie install -v thomas-0816/pdo-duckdb-php
+          else
+            sudo pie install -v thomas-0816/pdo-duckdb-php
+          fi
+          php -m | grep duckdb
+          composer create-project symfony/skeleton:^${symfony_version} example-app
+          cd example-app
+          composer show symfony/framework-bundle | grep versions
+          composer require symfony/orm-pack --no-interaction
+          composer require --dev symfony/maker-bundle psy/psysh
+          composer require thomas-0816/doctrine-dbal-duckdb:dev-main
+          sed -E -i.bak 's#DATABASE_URL="[^"]+"#DATABASE_URL="duckdb://_/%kernel.project_dir%/var/db.duckdb"#g' .env
+          sed -E -i.bak 's#profiling_collect_backtrace#driver_schemes:\n            duckdb: DuckDb\\DBAL\\Driver\n        profiling_collect_backtrace#g' config/packages/doctrine.yaml
+          sed -E -i.bak 's#: identity#: identity\n            DuckDb\\DBAL\\Platforms\\DuckDBPlatform: sequence#g' config/packages/doctrine.yaml
+          echo -e "name\nstring\n255\nno\nprice\nfloat\nno\n\n" | php bin/console make:entity Product
+          php bin/console make:migration --no-interaction
+          php bin/console doctrine:migrations:migrate --no-interaction -vv
+          vendor/bin/psysh <<'EOF'
+            (new Symfony\Component\Dotenv\Dotenv())->bootEnv(__DIR__."/.env");
+            ($kernel = new App\Kernel("dev", true))->boot();
+            $m = $kernel->getContainer()->get("doctrine.orm.entity_manager");
+            $m->persist((new App\Entity\Product())->setName("foo")->setPrice(12.34));
+            $m->flush();
+          EOF
+          vendor/bin/psysh <<'EOF' | grep foo
+            (new Symfony\Component\Dotenv\Dotenv())->bootEnv(__DIR__."/.env");
+            ($kernel = new App\Kernel("dev", true))->boot();
+            $m = $kernel->getContainer()->get("doctrine.orm.entity_manager");
+            print_r($m->getRepository(App\Entity\Product::class)->findOneBy(["name" => "foo"]));
+          EOF
+          vendor/bin/psysh <<'EOF'
+            (new Symfony\Component\Dotenv\Dotenv())->bootEnv(__DIR__."/.env");
+            ($kernel = new App\Kernel("dev", true))->boot();
+            $m = $kernel->getContainer()->get("doctrine.orm.entity_manager");
+            print_r($m->getConnection()->createQueryBuilder()->select('*')->from('product')->where('name = ?')->setParameter(0, 'foo')->fetchAllAssociative());
+          EOF
+          php bin/console dbal:run-sql 'SELECT count(*) FROM product' | grep "1"
+          vendor/bin/psysh <<'EOF' | grep duckdb
+            (new Symfony\Component\Dotenv\Dotenv())->bootEnv(__DIR__."/.env");
+            ($kernel = new App\Kernel("dev", true))->boot();
+            $m = $kernel->getContainer()->get("doctrine.orm.entity_manager");
+            echo $m->getConnection()->getNativeConnection()->getAttribute(PDO::ATTR_DRIVER_NAME);
+          EOF
+          vendor/bin/psysh <<'EOF'
+            (new Symfony\Component\Dotenv\Dotenv())->bootEnv(__DIR__."/.env");
+            ($kernel = new App\Kernel("dev", true))->boot();
+            $m = $kernel->getContainer()->get("doctrine.orm.entity_manager");
+            echo $m->getConnection()->getNativeConnection()->query('pragma version')->fetchColumn();
+          EOF
+
+  clamav:
+    name: "Docker: clamAV"
+    runs-on: ubuntu-latest
+    needs: [symfony]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - name: Build container and run clamAV
+        run: |
+          ls -lisah
+          docker run --rm --entrypoint sh -v $(pwd):/app clamav/clamav:latest /app/clamdscan.sh
+
+  publish:
+    name: "Publish: packagist"
+    runs-on: ubuntu-latest
+    needs: [clamav]
+    steps:
+      - name: Publish release on Packagist
+        env:
+          TOKEN: ${{ secrets.PACKAGIST_TOKEN }}
+        run: |
+          curl -fsSL -X POST -H 'content-type:application/json' -H "Authorization: Bearer thomas-0816:${TOKEN}" \
+            "https://packagist.org/api/update-package" -d'{"repository":{"url":"https://packagist.org/packages/thomas-0816/doctrine-dbal-duckdb"}}'
