@@ -11,9 +11,6 @@ use Doctrine\DBAL\Schema\TableDiff;
 
 /**
  * A {@see TableDiff} that additionally carries the comment of the new table.
- *
- * DuckDB always (re-)sets the table comment when a table is altered, so the
- * comment is attached without comparing it against the old one.
  */
 final class DuckDBTableDiff extends TableDiff /** @phpstan-ignore-line */
 {

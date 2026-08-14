@@ -31,7 +31,6 @@ use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\TransactionIsolationLevel;
 use Doctrine\DBAL\Types\Types;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
-use DuckDb\DBAL\Schema\DuckDBTable;
 use PHPUnit\Framework\Assert;
 use PDO;
 use PDOException;
@@ -270,7 +269,7 @@ final class DuckDBDriverTest extends TestCase
 
         $connection->executeStatement('CREATE SEQUENCE t1_id_seq');
 
-        $table = new DuckDBTable('t1');
+        $table = $schemaManager->introspectSchema()->createTable('t1');
         $table->addColumn('id', Types::INTEGER, ['default' => "nextval('t1_id_seq')"]);
         $table->setPrimaryKey(['id']);
         $schemaManager->createTable($table);
@@ -279,7 +278,7 @@ final class DuckDBDriverTest extends TestCase
         Assert::assertSame([], $schemaManager->introspectTableNames());
         Assert::assertCount(1, $schemaManager->introspectSequences());
 
-        $plain = new DuckDBTable('t2');
+        $plain = $schemaManager->introspectSchema()->createTable('t2');
         $plain->addColumn('id', Types::INTEGER);
         $schemaManager->createTable($plain);
         $schemaManager->dropTable('t2');
