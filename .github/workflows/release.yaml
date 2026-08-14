@@ -65,12 +65,15 @@ jobs:
           cd example-app
           composer show symfony/framework-bundle | grep versions
           composer require symfony/orm-pack --no-interaction
-          composer require --dev symfony/maker-bundle psy/psysh
+          composer require --dev symfony/maker-bundle
+          composer require --dev psy/psysh
           composer require thomas-0816/doctrine-dbal-duckdb:dev-main
           sed -E -i.bak 's#DATABASE_URL="[^"]+"#DATABASE_URL="duckdb://_/%kernel.project_dir%/var/db.duckdb"#g' .env
           sed -E -i.bak 's#profiling_collect_backtrace#driver_schemes:\n            duckdb: DuckDb\\DBAL\\Driver\n        profiling_collect_backtrace#g' config/packages/doctrine.yaml
           sed -E -i.bak 's#: identity#: identity\n            DuckDb\\DBAL\\Platforms\\DuckDBPlatform: sequence#g' config/packages/doctrine.yaml
           cat config/packages/doctrine.yaml
+          cat .env
+          composer dump-autoload -o
           echo -e "name\nstring\n255\nno\nprice\nfloat\nno\n\n" | php bin/console make:entity Product
           php bin/console make:migration --no-interaction
           php bin/console doctrine:migrations:migrate --no-interaction -vv
