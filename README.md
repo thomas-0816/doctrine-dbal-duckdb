@@ -35,13 +35,13 @@ DuckDB extensions work the same way as they do in DuckDB CLI.
 
 ## Configuration
 
-change .env
+change `.env`
 
 ```ini
 DATABASE_URL="duckdb://_/%kernel.project_dir%/var/db.duckdb"
 ```
 
-change config/packages/doctrine.yaml
+change `config/packages/doctrine.yaml`
 
 ```yaml
 doctrine:
@@ -69,18 +69,18 @@ rm -rf var/cache
 Connection test:
 
 ```bash
-php bin/console dbal:run-sql 'SELECT version()
+php bin/console dbal:run-sql 'SELECT version()'
 ```
 
 ## In-Memory Database
 
-For testing or reading external files, use the special in-memory database in .env:
+For testing or reading external files, use the special in-memory database in `.env`:
 
 ```ini
 DATABASE_URL="duckdb::memory:"
 ```
 
-## Usage
+## ORM Usage
 
 Create a new entity `Product` with attributes `name` (string) and `price` (float):
 
@@ -124,7 +124,7 @@ dump($product = $repository->findOneBy(['name' => 'bar']));
 # null
 ```
 
-## Doctrine Query Language Select
+## Select with Doctrine Query Language
 
 ```php
 $query = $entityManager->createQuery("
@@ -141,6 +141,8 @@ dump($query->getResult());
 #     -name: "foo"
 #     -price: 12.34
 ```
+
+## Select with Query Builder
 
 work in progress ...
 
