@@ -111,7 +111,7 @@ $entityManager->flush();
 
 dump($repository->findOneBy(['name' => 'bar']));
 
-# ^ App\Entity\Product^ {#216
+# App\Entity\Product
 #   -id: 1
 #   -name: "bar"
 #   -price: 12.34
@@ -122,6 +122,24 @@ $entityManager->flush();
 
 dump($product = $repository->findOneBy(['name' => 'bar']));
 # null
+```
+
+## Doctrine Query Language Select
+
+```php
+$query = $entityManager->createQuery("
+    SELECT p
+    FROM App\Entity\Product p
+    WHERE p.name = :name
+")->setParameter('name', 'foo');
+
+dump($query->getResult());
+
+# array [
+#   App\Entity\Product
+#     -id: 1
+#     -name: "foo"
+#     -price: 12.34
 ```
 
 work in progress ...
