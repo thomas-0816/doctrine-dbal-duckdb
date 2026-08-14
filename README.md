@@ -25,8 +25,6 @@ Install and setup Doctrine DBAL for DuckDB:
 
 ```bash
 composer require thomas-0816/doctrine-dbal-duckdb
-
-php artisan package:discover
 ```
 
 `pdo_duckdb` is a native DuckDB database driver for the PHP Data Objects (PDO) interface.\
@@ -37,7 +35,45 @@ DuckDB extensions work the same way as they do in DuckDB CLI.
 
 ## Configuration
 
-Work in progress ...
+change .env
+
+```
+DATABASE_URL="duckdb://_/%kernel.project_dir%/var/db.duckdb"
+```
+
+change config/packages/doctrine.yaml
+
+```
+doctrine:
+    dbal:
+        url: '%env(resolve:DATABASE_URL)%'
+        driver_schemes:
+            duckdb: DuckDb\DBAL\Driver
+        options:
+            !php/const PDO::DUCKDB_ATTR_CONFIG:
+                TimeZone: 'Europe/Berlin'
+    orm:
+        identity_generation_preferences:
+            DuckDb\DBAL\Platforms\DuckDBPlatform: sequence
+```
+
+after changing doctrine.yaml, clear the cache:
+
+```
+rm -rf var/cache
+```
+
+## In-Memory Database
+
+For testing or reading external files, use the special in-memory database in .env:
+
+```
+DATABASE_URL="duckdb::memory:"
+```
+
+## Usage
+
+work in progress ...
 
 ## Performance
 
