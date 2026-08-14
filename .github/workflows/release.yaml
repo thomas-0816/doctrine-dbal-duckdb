@@ -71,11 +71,8 @@ jobs:
           sed -E -i.bak 's#DATABASE_URL="[^"]+"#DATABASE_URL="duckdb://_/%kernel.project_dir%/var/db.duckdb"#g' .env
           sed -E -i.bak 's#profiling_collect_backtrace#driver_schemes:\n            duckdb: DuckDb\\DBAL\\Driver\n        profiling_collect_backtrace#g' config/packages/doctrine.yaml
           sed -E -i.bak 's#: identity#: identity\n            DuckDb\\DBAL\\Platforms\\DuckDBPlatform: sequence#g' config/packages/doctrine.yaml
-          cat config/packages/doctrine.yaml
-          cat .env
-          composer dump-autoload -o
-          composer show
-          echo -e "name\nstring\n255\nno\nprice\nfloat\nno\n\n" | sudo strace php bin/console make:entity Product
+          php bin/console cache:clear
+          echo -e "name\nstring\n255\nno\nprice\nfloat\nno\n\n" | php bin/console make:entity Product
           php bin/console make:migration --no-interaction
           php bin/console doctrine:migrations:migrate --no-interaction -vv
           vendor/bin/psysh <<'EOF'
