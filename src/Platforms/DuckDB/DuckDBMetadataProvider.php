@@ -206,7 +206,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
             $whereClause,
         );
         foreach ($this->connection->iterateAssociative($sql) as $row) {
-            $columnNames = array_map(fn($name) => trim($name, '"'), (array) $row['expressions']);
+            $columnNames = array_map(static fn($name) => trim($name, '"'), (array) $row['expressions']);
             foreach (array_filter($columnNames) as $columnName) {
                 yield new IndexColumnMetadataRow(
                     $row['schema_name'],
@@ -258,7 +258,7 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
             $whereClause,
         );
         foreach ($this->connection->iterateAssociative($sql) as $row) {
-            $columnNames = array_map(fn($name) => trim($name, '"'), (array) $row['constraint_column_names']);
+            $columnNames = array_map(static fn($name) => trim($name, '"'), (array) $row['constraint_column_names']);
             foreach (array_filter($columnNames) as $columnName) {
                 yield new PrimaryKeyConstraintColumnRow($row['schema_name'], $row['table_name'], $row['constraint_name'], true, $columnName);
             }

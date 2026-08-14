@@ -459,9 +459,9 @@ class DuckDBPlatform extends AbstractPlatform
                 if ($this->hasIdenticalTableSQL($droppedTable, $createdTable)) {
                     $droppedSequenceName = $this->autoIncrementSequenceName($droppedTable);
                     $createdSequenceName = $this->autoIncrementSequenceName($createdTable);
-                    $droppedSequence = array_filter($droppedSequences, fn(Sequence $droppedSequence)
+                    $droppedSequence = array_filter($droppedSequences, static fn(Sequence $droppedSequence)
                         => $droppedSequence->getObjectName()->toString() === $droppedSequenceName);
-                    $createdSequence = array_filter($createdSequences, fn(Sequence $createdSequence)
+                    $createdSequence = array_filter($createdSequences, static fn(Sequence $createdSequence)
                         => $createdSequence->getObjectName()->toString() === $createdSequenceName && $createdSequence->getInitialValue() === 1);
                     if ($createdSequence !== [] && $droppedSequence !== []) {
                         $sql[] = sprintf(
@@ -480,9 +480,9 @@ class DuckDBPlatform extends AbstractPlatform
                     $oldTable        = $tableDiff->getOldTable();
                     $oldSequenceName = $this->autoIncrementSequenceNameForColumn($oldTable, $columnDiff->getOldColumn()->getName());
                     $newSequenceName = $this->autoIncrementSequenceNameForColumn($oldTable, $columnDiff->getNewColumn()->getName());
-                    $droppedSequence = array_filter($droppedSequences, fn(Sequence $droppedSequence)
+                    $droppedSequence = array_filter($droppedSequences, static fn(Sequence $droppedSequence)
                         => $droppedSequence->getObjectName()->toString() === $oldSequenceName);
-                    $createdSequence = array_filter($createdSequences, fn(Sequence $createdSequence)
+                    $createdSequence = array_filter($createdSequences, static fn(Sequence $createdSequence)
                         => $createdSequence->getObjectName()->toString() === $newSequenceName && $createdSequence->getInitialValue() === 1);
                     if ($droppedSequence !== [] && $createdSequence !== []) {
                         $sql[] = sprintf(
