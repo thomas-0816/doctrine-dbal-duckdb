@@ -10,6 +10,7 @@ Integrates DuckDB's analytical database engine into Doctrine, enabling fast anal
 
 - PHP 8.2+
 - Doctrine DBAL 4+
+- Symfony 7+
 - pdo_duckdb PHP extension
 
 ## Install and setup
