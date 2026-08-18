@@ -35,18 +35,12 @@ DuckDB extensions work the same way as they do in DuckDB CLI.
 
 ## Configuration
 
-change `.env`
-
-```ini
-DATABASE_URL="duckdb://_/%kernel.project_dir%/var/db.duckdb"
-```
-
 change `config/packages/doctrine.yaml`
 
 ```yaml
 doctrine:
     dbal:
-        url: '%env(resolve:DATABASE_URL)%'
+        url: 'duckdb://_/%kernel.project_dir%/var/db.duckdb'
         driver_schemes:
             duckdb: DuckDb\DBAL\Driver
         options:
@@ -60,6 +54,8 @@ doctrine:
             DuckDb\DBAL\Platforms\DuckDBPlatform: sequence
 ```
 
+For testing or reading external files, use the special in-memory database `duckdb::memory:`.
+
 after changing doctrine.yaml, clear the cache:
 
 ```bash
@@ -69,15 +65,7 @@ rm -rf var/cache
 Connection test:
 
 ```bash
-php bin/console dbal:run-sql 'SELECT version()'
-```
-
-## In-Memory Database
-
-For testing or reading external files, use the special in-memory database in `.env`:
-
-```ini
-DATABASE_URL="duckdb::memory:"
+php bin/console dbal:run-sql 'SELECT version(), current_database()'
 ```
 
 ## ORM Usage
@@ -87,7 +75,7 @@ Create a new entity `Product` with attributes `name` (string) and `price` (float
 ```bash
 echo -e "name\nstring\n\n\nprice\nfloat\n\n\n" | php bin/console make:entity Product
 
-# php bin/console make:migration
+# php bin/console doctrine:migrations:diff
 # php bin/console doctrine:migrations:migrate -vv
 ```
 
@@ -97,6 +85,8 @@ Create a new Product:
 $product = new Product();
 $product->setName('foo');
 $product->setPrice(12.34);
+
+// use Doctrine\ORM\EntityManagerInterface from DI
 $entityManager->persist($product);
 $entityManager->flush();
 ```
@@ -104,6 +94,7 @@ $entityManager->flush();
 Query, update and delete a Product:
 
 ```php
+// use Doctrine\ORM\EntityManagerInterface from DI
 $repository = $entityManager->getRepository(Product::class);
 $product = $repository->findOneBy(['name' => 'foo']);
 $product->setName('bar');
@@ -127,6 +118,7 @@ dump($product = $repository->findOneBy(['name' => 'bar']));
 ## Select with Doctrine Query Language
 
 ```php
+// use Doctrine\ORM\EntityManagerInterface from DI
 $query = $entityManager->createQuery("
     SELECT p
     FROM App\Entity\Product p
@@ -145,6 +137,7 @@ dump($query->getResult());
 ## Select with Query Builder
 
 ```php
+// use Doctrine\ORM\EntityManagerInterface from DI
 $query = $entityManager->createQueryBuilder()
     ->select('p')
     ->from(Product::class, 'p')
@@ -168,6 +161,7 @@ $sql = '
     FROM product
     WHERE name = :name
 ';
+// use Doctrine\ORM\EntityManagerInterface from DI
 $result = $entityManager->getConnection()->executeQuery($sql, ['name' => 'foo']);
 dump($result->fetchAllAssociative());
 
