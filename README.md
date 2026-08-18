@@ -215,20 +215,20 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\MappedSuperclass]
 #[ORM\Table(name: "'/tmp/test.csv'")]
-class TestCsv
+readonly class TestCsv
 {
     #[ORM\Id]
     #[ORM\Column(name: 'row_number() over ()')] # emulate unique id
-    public readonly int $id;
+    public int $id;
 
     #[ORM\Column()]
-    public readonly ?string $aaa;
+    public ?string $aaa;
 
     #[ORM\Column()]
-    public readonly ?string $bbb;
+    public ?string $bbb;
 
     #[ORM\Column()]
-    public readonly ?string $ccc;
+    public ?string $ccc;
 }
 ```
 
@@ -265,11 +265,69 @@ dump($repository->findAll());
 
 ## CSV data import with SQL Query Builder
 
-Work in progress ...
+```php
+$list = [
+    ['aaa', 'bbb'],
+    ['123', '456'],
+    ['aaa', 'bbb']
+];
+$fp = fopen('/tmp/test.csv', 'w');
+foreach ($list as $fields) {
+    fputcsv($fp, $fields, ',', '"', "");
+}
+fclose($fp);
+
+$conn = $this->entityManager->getConnection();
+$conn->executeStatement("CREATE TABLE test_csv AS SELECT * FROM '/tmp/test.csv'"); // schema + data import
+$conn->executeStatement("INSERT INTO test_csv SELECT * FROM '/tmp/test.csv'"); // only import data
+dump($conn->executeQuery('SHOW test_csv')->fetchAllAssociative());
+
+# array
+#   array
+#     "column_name" => "aaa"
+#     "column_type" => "VARCHAR"
+#     "null" => "YES"
+#   array
+#     "column_name" => "bbb"
+#     "column_type" => "VARCHAR"
+#     "null" => "YES"
+```
 
 ## Read JSON files with SQL Query Builder
 
-Work in progress ...
+```php
+file_put_contents('/tmp/logs.json', json_encode(['log' => 'log text']) . PHP_EOL, FILE_APPEND);
+file_put_contents('/tmp/logs.json', json_encode(['log' => 'log text 2']) . PHP_EOL, FILE_APPEND);
+
+// use Doctrine\ORM\EntityManagerInterface from DI
+$result = $entityManager->getConnection()->createQueryBuilder()
+    ->select('log')
+    ->from("'/tmp/logs.json'") // or multiple files using '/tmp/*.json'
+    ->fetchAllAssociative();
+dump($result);
+
+# array
+#   array
+#     "log" => "log text"
+#   array
+#     "log" => "log text 2"
+
+// Convert JSON file to PARQUET file
+$sql = "COPY (SELECT * FROM '/tmp/logs.json') TO '/tmp/logs.parquet'";
+$entityManager->getConnection()->executeStatement($sql);
+
+$result = $entityManager->getConnection()->createQueryBuilder()
+    ->select('log')
+    ->from("'/tmp/logs.parquet'")
+    ->fetchAllAssociative();
+dump($result);
+
+# array
+#   array
+#     "log" => "log text"
+#   array
+#     "log" => "log text 2"
+```
 
 ## Read JSON files with Doctrine ORM
 
@@ -283,7 +341,7 @@ Work in progress ...
 
 Work in progress ...
 
-## Read public data using HTTPs, JSON and CSV
+## Read public data using HTTPs, JSON, CSV and Parquet
 
 Work in progress ...
 
@@ -309,7 +367,11 @@ Work in progress ...
 
 ## Schema Dump
 
-Work in progress ...
+The package supports doctrine:schema:create command:
+
+```bash
+php bin/console doctrine:schema:create --dump-sql
+```
 
 ## Query Debugging
 
