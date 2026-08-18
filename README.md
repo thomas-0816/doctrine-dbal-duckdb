@@ -174,6 +174,147 @@ dump($result->fetchAllAssociative());
 
 ## work in progress ...
 
+## Read CSV files with SQL Query Builder
+
+```php
+$list = [
+    ['aaa', 'bbb', 'ccc'],
+    ['123', '456', '789'],
+    ['ddd', 'eee', 'fff'],
+];
+$fp = fopen('/tmp/test.csv', 'w');
+foreach ($list as $fields) {
+    fputcsv($fp, $fields, ',', '"', "");
+}
+fclose($fp);
+
+// use Doctrine\ORM\EntityManagerInterface from DI
+$result = $entityManager->getConnection()->createQueryBuilder()
+    ->select('*')
+    ->from("'/tmp/test.csv'") // or multiple files using /tmp/*.csv
+    ->fetchAllAssociative();
+dump($result);
+
+# array
+#   array
+#     "aaa" => "123"
+#     "bbb" => "456"
+#     "ccc" => "789"
+#   array
+#     "aaa" => "ddd"
+#     "bbb" => "eee"
+#     "ccc" => "fff"
+```
+
+## Read CSV files with Doctrine ORM
+
+```php
+namespace App\Entity;
+
+use Doctrine\ORM\Mapping as ORM;
+
+#[ORM\MappedSuperclass]
+#[ORM\Table(name: "'/tmp/test.csv'")]
+class TestCsv
+{
+    #[ORM\Id]
+    #[ORM\Column(name: 'row_number() over ()')] # emulate unique id
+    public readonly int $id;
+
+    #[ORM\Column()]
+    public readonly ?string $aaa;
+
+    #[ORM\Column()]
+    public readonly ?string $bbb;
+
+    #[ORM\Column()]
+    public readonly ?string $ccc;
+}
+```
+
+```php
+use App\Entity\TestCsv;
+
+$list = [
+    ['aaa', 'bbb', 'ccc'],
+    ['123', '456', '789'],
+    ['ddd', 'eee', 'fff'],
+];
+$fp = fopen('/tmp/test.csv', 'w');
+foreach ($list as $fields) {
+    fputcsv($fp, $fields, ',', '"', "");
+}
+fclose($fp);
+
+// use Doctrine\ORM\EntityManagerInterface from DI
+$repository = $entityManager->getRepository(TestCsv::class);
+dump($repository->findAll());
+
+# array
+#   App\Entity\TestCsv
+#     +id: 1
+#     +aaa: "123"
+#     +bbb: "456"
+#     +ccc: "789"
+#   App\Entity\TestCsv
+#     +id: 2
+#     +aaa: "ddd"
+#     +bbb: "eee"
+#     +ccc: "fff"
+```
+
+## CSV data import with SQL Query Builder
+
+Work in progress ...
+
+## Read JSON files with SQL Query Builder
+
+Work in progress ...
+
+## Read JSON files with Doctrine ORM
+
+Work in progress ...
+
+## Read PARQUET files with Doctrine ORM
+
+Work in progress ...
+
+## Read and write PARQUET files with SQL Query Builder
+
+Work in progress ...
+
+## Read public data using HTTPs, JSON and CSV
+
+Work in progress ...
+
+## Copy data from MariaDB to a parquet file
+
+Work in progress ...
+
+## Copy data from PostgreSQL to a parquet file
+
+Work in progress ...
+
+## Schema and Query Builder for special types
+
+Work in progress ...
+
+## Doctrine ORM for special types
+
+Work in progress ...
+
+## Views
+
+Work in progress ...
+
+## Schema Dump
+
+Work in progress ...
+
+## Query Debugging
+
+Work in progress ...
+
 ## Performance
 
 DuckDB is extremely fast when it comes to analytic queries.\
