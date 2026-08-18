@@ -106,7 +106,6 @@ dump($repository->findOneBy(['name' => 'bar']));
 #   -id: 1
 #   -name: "bar"
 #   -price: 12.34
-# }
 
 $entityManager->remove($product);
 $entityManager->flush();
@@ -277,7 +276,8 @@ foreach ($list as $fields) {
 }
 fclose($fp);
 
-$conn = $this->entityManager->getConnection();
+// use Doctrine\ORM\EntityManagerInterface from DI
+$conn = $entityManager->getConnection();
 $conn->executeStatement("CREATE TABLE test_csv AS SELECT * FROM '/tmp/test.csv'"); // schema + data import
 $conn->executeStatement("INSERT INTO test_csv SELECT * FROM '/tmp/test.csv'"); // only import data
 dump($conn->executeQuery('SHOW test_csv')->fetchAllAssociative());
@@ -343,7 +343,76 @@ Work in progress ...
 
 ## Read public data using HTTPs, JSON, CSV and Parquet
 
-Work in progress ...
+Query weather data:
+
+```php
+// use Doctrine\ORM\EntityManagerInterface from DI
+$result = $entityManager->getConnection()->createQueryBuilder()
+    ->select('id', 'name.en')
+    ->from("'https://bulk.meteostat.net/v2/stations/lite.json.gz'")
+    ->where("name.en like '%Berlin%'")
+    ->setMaxResults(2)
+    ->fetchAllAssociative();
+dump(json_encode($result));
+
+# [{"id":"10381","en":"Berlin \/ Dahlem"},{"id":"10382","en":"Berlin \/ Tegel"}]
+
+$result = $entityManager->getConnection()->createQueryBuilder()
+    ->select('hour', 'temp')
+    ->from("'https://data.meteostat.net/hourly/2026/10381.csv.gz'")
+    ->where('year = 2026')->where('month = 7')->where('day = 25')->where('hour > 9')
+    ->setMaxResults(3)
+    ->fetchAllAssociative();
+dump(json_encode($result));
+
+# [{"hour":10,"temp":2.5},{"hour":11,"temp":2.9},{"hour":12,"temp":3.1}]
+```
+
+Download and query historical data from Deutsche Bahn:
+
+```php
+# wget https://huggingface.co/datasets/piebro/deutsche-bahn-data/resolve/main/monthly_processed_data/data-2026-07.parquet
+
+// use Doctrine\ORM\EntityManagerInterface from DI
+$rows = $entityManager->getConnection()->executeQuery("
+    SELECT train_type, train_number, round(avg(delay_in_min)) as delay_avg, count(*) as count
+    FROM 'data-2026-07.parquet' WHERE train_type = 'ICE'
+    GROUP BY train_number, train_type
+    ORDER BY delay_avg DESC
+    LIMIT 10
+")->fetchAllAssociative();
+dump(array_map('json_encode', $rows));
+
+# array
+#   {"train_type":"ICE","train_number":"647","delay_avg":70,"count":35}
+#   {"train_type":"ICE","train_number":"1541","delay_avg":66,"count":198}
+#   {"train_type":"ICE","train_number":"2587","delay_avg":44,"count":72}
+#   {"train_type":"ICE","train_number":"79152","delay_avg":44,"count":2}
+#   {"train_type":"ICE","train_number":"2214","delay_avg":43,"count":159}
+#   {"train_type":"ICE","train_number":"2311","delay_avg":42,"count":289}
+#   {"train_type":"ICE","train_number":"953","delay_avg":42,"count":79}
+#   {"train_type":"ICE","train_number":"526","delay_avg":41,"count":337}
+#   {"train_type":"ICE","train_number":"859","delay_avg":41,"count":80}
+#   {"train_type":"ICE","train_number":"2512","delay_avg":39,"count":28}
+
+$rows = $entityManager->getConnection()->executeQuery("
+    SELECT train_number, station_name, delay_in_min, hour(time) as hour, departure_is_canceled
+    FROM 'data-2026-07.parquet'
+    WHERE train_number = 647 AND time::date = '2026-07-11'
+")->fetchAllAssociative();;
+dump(array_map('json_encode', $rows));
+
+# array
+#   {"train_number":"647","station_name":"Dortmund Hbf","delay_in_min":82,"hour":0,"departure_is_canceled":false}
+#   {"train_number":"647","station_name":"Hamm (Westf) Hbf","delay_in_min":120,"hour":1,"departure_is_canceled":false}
+#   {"train_number":"647","station_name":"Bielefeld Hbf","delay_in_min":120,"hour":1,"departure_is_canceled":false}
+#   {"train_number":"647","station_name":"Minden (Westf)","delay_in_min":123,"hour":2,"departure_is_canceled":false}
+#   {"train_number":"647","station_name":"Hannover Hbf","delay_in_min":138,"hour":2,"departure_is_canceled":false}
+#   {"train_number":"647","station_name":"Wolfsburg Hbf","delay_in_min":135,"hour":3,"departure_is_canceled":false}
+#   {"train_number":"647","station_name":"Berlin Hauptbahnhof","delay_in_min":121,"hour":4,"departure_is_canceled":true}
+#   {"train_number":"647","station_name":"Berlin S\u00fcdkreuz","delay_in_min":120,"hour":4,"departure_is_canceled":false}
+#   {"train_number":"647","station_name":"Berlin-Spandau","delay_in_min":146,"hour":4,"departure_is_canceled":false}
+```
 
 ## Copy data from MariaDB to a parquet file
 
@@ -364,6 +433,27 @@ Work in progress ...
 ## Views
 
 Work in progress ...
+
+## Transactions
+
+```php
+$list = [
+    ['aaa', 'bbb', 'ccc'],
+    ['123', '456', '789'],
+    ['ddd', 'eee', 'fff'],
+];
+$fp = fopen('/tmp/test.csv', 'w');
+foreach ($list as $fields) {
+    fputcsv($fp, $fields, ',', '"', "");
+}
+fclose($fp);
+
+// use Doctrine\ORM\EntityManagerInterface from DI
+$entityManager->getConnection()->transactional(function ($conn) {
+    $conn->executeStatement("CREATE TABLE test_csv AS SELECT * FROM '/tmp/test.csv'");
+    $conn->executeStatement("INSERT INTO test_csv SELECT * FROM '/tmp/test.csv'");
+});
+```
 
 ## Schema Dump
 
