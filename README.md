@@ -339,7 +339,34 @@ Work in progress ...
 
 ## Read and write PARQUET files with SQL Query Builder
 
-Work in progress ...
+```php
+// use Doctrine\ORM\EntityManagerInterface from DI
+$conn = $entityManager->getConnection();
+$conn->executeStatement("CREATE TABLE table1 (id integer primary key, text varchar, data JSON)");
+
+$conn->createQueryBuilder()->insert('table1')
+    ->values(['id' => 1, 'text' => '?', 'data' => '?'])
+    ->setParameter(0, 1)
+    ->setParameter(1, 'Hello DuckDB')
+    ->setParameter(2, ['foo' => 'bar', 'baz' => 42])
+    ->executeStatement();
+
+$conn->executeStatement("COPY (SELECT * FROM table1) TO '/tmp/table1.parquet'");
+
+$rows = $conn->createQueryBuilder()
+    ->select('*')
+    ->from("'/tmp/table1.parquet'")
+    ->fetchAllAssociative();
+dump($rows);
+
+# array
+#   array
+#     "id" => 1
+#     "text" => "Hello DuckDB"
+#     "data" => array
+#       "foo" => "bar"
+#       "baz" => 42
+```
 
 ## Read public data using HTTPs, JSON, CSV and Parquet
 
@@ -416,11 +443,85 @@ dump(array_map('json_encode', $rows));
 
 ## Copy data from MariaDB to a parquet file
 
-Work in progress ...
+Start a MariaDB container, create and fill "orders" table:
+
+```bash
+docker run --rm -it -p 3306:3306 -e MARIADB_ROOT_PASSWORD=secret -e MARIADB_DATABASE=testdb mariadb:12
+mysql -h 127.0.0.1 -u root -psecret testdb -e "
+    CREATE TABLE orders (id integer primary key, customer integer, amount decimal(12, 2), origin varchar(255));
+    INSERT INTO orders VALUES (1, 42, 123.42, 'shop');
+    INSERT INTO orders VALUES (2, 21, 12.21, 'offline');
+"
+```
+
+Use DuckDB [MySQL extension](https://duckdb.org/docs/lts/core_extensions/mysql) to copy "orders" table from MariaDB to a parquet file:
+
+```php
+// use Doctrine\ORM\EntityManagerInterface from DI
+$entityManager->getConnection()->executeStatement("
+    INSTALL mysql;
+    ATTACH 'host=127.0.0.1 port=3306 user=root password=secret database=testdb' AS testdb (TYPE mysql);
+    COPY (select * from testdb.orders) TO '/tmp/orders.parquet' (FORMAT parquet);
+");
+
+$rows = $entityManager->getConnection()->createQueryBuilder()
+    ->select('*')
+    ->from("'/tmp/orders.parquet'")
+    ->fetchAllAssociative();
+dump($rows);
+
+# array
+#   array
+#     "id" => 1
+#     "customer" => 42
+#     "amount" => 123.42
+#     "origin" => "shop"
+#   array
+#     "id" => 2
+#     "customer" => 21
+#     "amount" => 12.21
+#     "origin" => "offline"
+```
 
 ## Copy data from PostgreSQL to a parquet file
 
-Work in progress ...
+Start PostgreSQL container, create and fill "orders" table:
+
+```bash
+docker run --rm -it -p 5432:5432 -e POSTGRES_PASSWORD=secret postgres:18
+PGPASSWORD=secret psql -h 127.0.0.1 -U postgres -c "
+    CREATE TABLE orders (id integer primary key, customer integer, amount decimal(12, 2), origin varchar(255));
+    INSERT INTO orders VALUES (1, 42, 123.42, 'shop');
+    INSERT INTO orders VALUES (2, 21, 12.21, 'offline');
+"
+```
+
+Use DuckDB [PostgreSQL extension](https://duckdb.org/docs/lts/core_extensions/postgres) to copy "orders" table from PostgreSQL to a parquet file:
+
+```php
+$entityManager->getConnection()->executeStatement("
+    INSTALL postgres;
+    ATTACH 'host=127.0.0.1 port=5432 user=postgres password=secret' AS testdb (TYPE postgres);
+    COPY (select * from testdb.orders) TO '/tmp/orders.parquet' (FORMAT parquet);
+");
+$rows = $entityManager->getConnection()->createQueryBuilder()
+    ->select('*')
+    ->from("'/tmp/orders.parquet'")
+    ->fetchAllAssociative();
+dump($rows);
+
+# array
+#   array
+#     "id" => 1
+#     "customer" => 42
+#     "amount" => 123.42
+#     "origin" => "shop"
+#   array
+#     "id" => 2
+#     "customer" => 21
+#     "amount" => 12.21
+#     "origin" => "offline"
+```
 
 ## Schema and Query Builder for special types
 
@@ -465,7 +566,18 @@ php bin/console doctrine:schema:create --dump-sql
 
 ## Query Debugging
 
-Work in progress ...
+change .env:
+
+```ini
+APP_DEBUG=true
+```
+
+install the monolog bundle and tail the log file:
+
+```bash
+composer require symfony/monolog-bundle
+tail -f var/log/dev.log | grep -v "deprecation"
+```
 
 ## Performance
 
