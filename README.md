@@ -499,6 +499,7 @@ PGPASSWORD=secret psql -h 127.0.0.1 -U postgres -c "
 Use DuckDB [PostgreSQL extension](https://duckdb.org/docs/lts/core_extensions/postgres) to copy "orders" table from PostgreSQL to a parquet file:
 
 ```php
+// use Doctrine\ORM\EntityManagerInterface from DI
 $entityManager->getConnection()->executeStatement("
     INSTALL postgres;
     ATTACH 'host=127.0.0.1 port=5432 user=postgres password=secret' AS testdb (TYPE postgres);
@@ -533,7 +534,13 @@ Work in progress ...
 
 ## Views
 
-Work in progress ...
+```php
+// create or drop views
+// use Doctrine\ORM\EntityManagerInterface from DI
+$conn = $this->entityManager->getConnection();
+$conn->executeStatement('CREATE VIEW view1 AS SELECT * FROM product');
+$conn->executeStatement('DROP VIEW view1');
+```
 
 ## Transactions
 
