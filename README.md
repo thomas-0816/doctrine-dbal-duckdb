@@ -598,7 +598,54 @@ dump($rows);
 
 ## Schema and Query Builder for special types
 
-Work in progress ...
+Special types can be defined by using `columndefinition`:
+
+```php
+// use Doctrine\ORM\EntityManagerInterface from DI
+$schema = $entityManager->getConnection()->createSchemaManager();
+$sequence = $schema->introspectSchema()->createSequence('events_id_seq');
+$schema->createSequence($sequence);
+
+$table = $schema->introspectSchema()->createTable('events');
+$table->addColumn('id', Types::INTEGER, ['default' => "nextval('events_id_seq')"]);
+$table->addColumn('numbers', Types::JSON, ['columndefinition' => 'integer[]']);
+$table->addColumn('categories', Types::JSON, ['columndefinition' => 'varchar[]']);
+$table->addColumn('person', Types::JSON, ['columndefinition' => 'STRUCT(v VARCHAR, va VARCHAR[], d DECIMAL)']);
+$table->setPrimaryKey(['id']);
+$schema->createTable($table);
+
+$person = new Person();
+$person->v = 'foo';
+$person->va = ['bar', 'baz'];
+$person->d = 12.34;
+
+$entityManager->getConnection()->createQueryBuilder()->insert('events')
+    ->values(['numbers' => '?', 'categories' => '?', 'person' => '?'])
+    ->setParameters([[21, 42], ['cat1', 'cat2'], $person])
+    ->executeStatement();
+
+$result = $entityManager->getConnection()->createQueryBuilder()
+    ->select('*')
+    ->from('events')
+    ->fetchAllAssociative();
+dump($result);
+
+# array
+#   array
+#     "id" => 1
+#     "numbers" => array
+#       0 => 21
+#       1 => 42
+#     "categories" => array
+#       0 => "cat1"
+#       1 => "cat2"
+#     "person" => array
+#       "v" => "foo"
+#       "va" => array
+#         0 => "bar"
+#         1 => "baz"
+#       "d" => 12.34
+```
 
 ## Doctrine ORM for special types
 
