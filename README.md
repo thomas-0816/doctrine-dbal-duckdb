@@ -331,11 +331,83 @@ dump($result);
 
 ## Read JSON files with Doctrine ORM
 
-Work in progress ...
+```php
+namespace App\Entity;
+
+use Doctrine\ORM\Mapping as ORM;
+
+#[ORM\MappedSuperclass]
+#[ORM\Table(name: "'/tmp/logs.json'")]
+readonly class TestJson
+{
+    #[ORM\Id]
+    #[ORM\Column(name: 'row_number() over ()')] # emulate unique id
+    public int $id;
+
+    #[ORM\Column()]
+    public ?string $log;
+}
+
+file_put_contents('/tmp/logs.json', json_encode(['log' => 'log text']) . PHP_EOL, FILE_APPEND);
+file_put_contents('/tmp/logs.json', json_encode(['log' => 'log text 2']) . PHP_EOL, FILE_APPEND);
+
+// use Doctrine\ORM\EntityManagerInterface from DI
+$repository = $entityManager->getRepository(TestJson::class);
+dump($repository->findAll());
+
+# array
+#   App\Entity\TestJson
+#     +id: 1
+#     +log: "log text"
+#   App\Entity\TestJson
+#     +id: 2
+#     +log: "log text 2"
+```
 
 ## Read PARQUET files with Doctrine ORM
 
-Work in progress ...
+```php
+namespace App\Entity;
+
+use Doctrine\ORM\Mapping as ORM;
+
+#[ORM\MappedSuperclass]
+#[ORM\Table(name: "'/tmp/logs.parquet'")]
+readonly class LogsParquet
+{
+    #[ORM\Id]
+    #[ORM\Column(name: 'row_number() over ()')] # emulate unique id
+    public int $id;
+
+    #[ORM\Column()]
+    public ?string $log;
+}
+
+file_put_contents('/tmp/logs.json', json_encode(['log' => 'log text']) . PHP_EOL, FILE_APPEND);
+file_put_contents('/tmp/logs.json', json_encode(['log' => 'log text 2']) . PHP_EOL, FILE_APPEND);
+
+// Convert JSON file to PARQUET file
+// use Doctrine\ORM\EntityManagerInterface from DI
+$conn = $entityManager->getConnection();
+$conn->executeStatement("COPY (SELECT * FROM '/tmp/logs.json') TO '/tmp/logs.parquet'");
+
+$repository = $entityManager->getRepository(LogsParquet::class);
+dump($repository->findAll());
+
+# array:2 [
+#   App\Entity\LogsParquet
+#     +id: 1
+#     +log: "log text"
+#   App\Entity\LogsParquet
+#     +id: 2
+#     +log: "log text 2"
+```
+
+__Apache Parquet__: very fast and efficient column based storage file format containing one table of data.\
+Each column is split into several column groups. Depending on the query, the file can be read partially by certain columns groups.\
+Different compression or dictionary algorithms can be applied to each column. Also supports encryption.
+
+Note: You can read and save Parquet files on local file systems or directly on [S3 object storage](https://duckdb.org/docs/lts/core_extensions/httpfs/s3api).
 
 ## Read and write PARQUET files with SQL Query Builder
 
@@ -537,7 +609,7 @@ Work in progress ...
 ```php
 // create or drop views
 // use Doctrine\ORM\EntityManagerInterface from DI
-$conn = $this->entityManager->getConnection();
+$conn = $entityManager->getConnection();
 $conn->executeStatement('CREATE VIEW view1 AS SELECT * FROM product');
 $conn->executeStatement('DROP VIEW view1');
 ```
