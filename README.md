@@ -154,9 +154,15 @@ dump($query->execute());
 
 ## Select with SQL Query Builder
 
-TODO
-
 ```php
+// use Doctrine\ORM\EntityManagerInterface from DI
+$result = $entityManager->getConnection()->createQueryBuilder()
+    ->select('*')
+    ->from("product") // or multiple files using /tmp/*.csv
+    ->fetchAllAssociative();
+dump($result);
+
+
 ```
 
 ## Select with SQL
@@ -854,6 +860,31 @@ install the monolog bundle and tail the log file:
 ```bash
 composer require symfony/monolog-bundle
 tail -f var/log/dev.log | grep -v "deprecation"
+```
+
+## Configuration without Doctrine
+
+Change `config/services.yaml`
+
+```yaml
+services:
+    doctrine.dbal.connection:
+        class: Doctrine\DBAL\Connection
+        public: true
+        factory: ['Doctrine\DBAL\DriverManager', 'getConnection']
+        arguments:
+            $params:
+                path: '%kernel.project_dir%/var/db.duckdb' # or ':memory:'
+                driverClass: 'DuckDb\DBAL\Driver'
+    Doctrine\DBAL\Connection: '@doctrine.dbal.connection'
+```
+
+Connection test:
+
+```php
+// use Doctrine\DBAL\Connection from DI
+$result = $connection->executeQuery('SELECT version(), current_database()')
+dump($result->fetchAssociative());
 ```
 
 ## Performance
