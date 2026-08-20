@@ -173,7 +173,31 @@ dump($result->fetchAllAssociative());
 
 ## Schema Builder
 
-work in progress ...
+```php
+// up
+// use Doctrine\ORM\EntityManagerInterface from DI
+$schema = $entityManager->getConnection()->createSchemaManager();
+
+$sequence = $schema->introspectSchema()->createSequence('events_id_seq');
+$schema->createSequence($sequence);
+
+$table = $schema->introspectSchema()->createTable('events');
+$table->addColumn('id', Types::INTEGER, ['default' => "nextval('events_id_seq')"]);
+$table->addColumn('category', Types::STRING);
+$table->addColumn('amount', Types::DECIMAL, ['precision' => 12, 'scale' => 2]);
+$table->addColumn('tags', Types::JSON, ['notnull' => false]);
+$table->setPrimaryKey(['id']);
+$schema->createTable($table);
+
+// php bin/console doctrine:migrations:migrate -vv --dry-run
+// php bin/console doctrine:migrations:migrate -vv
+
+// down
+// use Doctrine\ORM\EntityManagerInterface from DI
+$schema = $entityManager->getConnection()->createSchemaManager();
+$schema->dropSequence('events_id_seq');
+$schema->dropTable('events');
+```
 
 ## Insert with Query Builder
 
@@ -714,10 +738,12 @@ $event->numbers = [21, 42];
 $event->categories = ['cat1', 'cat2'];
 $event->person = $person;
 $event->persons = [$person];
-$this->entityManager->persist($event);
-$this->entityManager->flush();
 
-$repository = $this->entityManager->getRepository(Event::class);
+// use Doctrine\ORM\EntityManagerInterface from DI
+$entityManager->persist($event);
+$entityManager->flush();
+
+$repository = $entityManager->getRepository(Event::class);
 dump($repository->findAll());
 
 # App\Entity\Event
