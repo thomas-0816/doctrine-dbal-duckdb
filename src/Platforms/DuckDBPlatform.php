@@ -47,12 +47,13 @@ class DuckDBPlatform extends AbstractPlatform
 
     public function getCreateDatabaseSQL(string $name): string
     {
-        throw NotSupported::new(__METHOD__);
+        return 'ATTACH ' . $this->quoteStringLiteral(trim($name, '"'));
     }
 
     public function getDropDatabaseSQL(string $name): string
     {
-        throw NotSupported::new(__METHOD__);
+        unlink(trim($name, '"'));
+        return 'SELECT 1';
     }
 
     public function getRegexpExpression(): string

@@ -35,7 +35,7 @@ DuckDB extensions work the same way as they do in DuckDB CLI.
 
 ## Configuration
 
-change `config/packages/doctrine.yaml`
+Change `config/packages/doctrine.yaml`
 
 ```yaml
 doctrine:
@@ -56,7 +56,7 @@ doctrine:
 
 For testing or reading external files, use the special in-memory database `duckdb::memory:`.
 
-after changing doctrine.yaml, clear the cache:
+After changing doctrine.yaml, clear the cache:
 
 ```bash
 rm -rf var/cache

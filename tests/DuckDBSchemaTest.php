@@ -780,4 +780,21 @@ final class DuckDBSchemaTest extends TestCase
         $diff = $schemaManager->createComparator()->compareTables($oldTable, $newTable);
         Assert::assertSame([], $diff->getDroppedIndexes());
     }
+
+    public function testGetCreateDatabaseSQL(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+        $schemaManager->createDatabase(sys_get_temp_dir() . '/db1.duckdb');
+        Assert::assertFileExists(sys_get_temp_dir() . '/db1.duckdb');
+    }
+
+    public function testGetDropDatabaseSQL(): void
+    {
+        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
+        $schemaManager = $connection->createSchemaManager();
+        touch(sys_get_temp_dir() . '/db1.duckdb');
+        $schemaManager->dropDatabase(sys_get_temp_dir() . '/db1.duckdb');
+        Assert::assertFileDoesNotExist(sys_get_temp_dir() . '/db1.duckdb');
+    }
 }

@@ -679,24 +679,6 @@ final class DuckDBDriverTest extends TestCase
         Assert::assertSame([1, 2], $connection->fetchFirstColumn('SELECT i1 FROM t1 ORDER BY i1'));
     }
 
-    public function testGetCreateDatabaseSQL(): void
-    {
-        $this->expectException(NotSupported::class);
-
-        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
-        $connection = DriverManager::getConnection($connectionParams);
-        $connection->getDatabasePlatform()->getCreateDatabaseSQL('db1');
-    }
-
-    public function testGetDropDatabaseSQL(): void
-    {
-        $this->expectException(NotSupported::class);
-
-        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
-        $connection = DriverManager::getConnection($connectionParams);
-        $connection->getDatabasePlatform()->getDropDatabaseSQL('db1');
-    }
-
     public function testGetSetTransactionIsolationSQL(): void
     {
         $this->expectException(NotSupported::class);
