@@ -212,7 +212,26 @@ $entityManager->getConnection()->createQueryBuilder()
 
 ## Doctrine Entities
 
-work in progress ...
+```php
+namespace App\Entity;
+
+use Doctrine\ORM\Mapping as ORM;
+
+#[ORM\Entity]
+class Product
+{
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column]
+    private ?int $id = null;
+
+    #[ORM\Column]
+    private ?string $name = null;
+
+    #[ORM\Column]
+    private ?float $price = null;
+}
+```
 
 ## Read CSV files with SQL Query Builder
 
