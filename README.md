@@ -133,7 +133,7 @@ dump($query->getResult());
 #     -price: 12.34
 ```
 
-## Select with Query Builder
+## Select with Doctrine Query Builder
 
 ```php
 // use Doctrine\ORM\EntityManagerInterface from DI
@@ -150,6 +150,13 @@ dump($query->execute());
 #     -id: 1
 #     -name: "foo"
 #     -price: 12.34
+```
+
+## Select with SQL Query Builder
+
+TODO
+
+```php
 ```
 
 ## Select with SQL
@@ -199,7 +206,7 @@ $schema->dropSequence('events_id_seq');
 $schema->dropTable('events');
 ```
 
-## Insert with Query Builder
+## Insert with SQL Query Builder
 
 ```php
 // use Doctrine\ORM\EntityManagerInterface from DI
@@ -370,7 +377,7 @@ dump($result);
 #   array
 #     "log" => "log text 2"
 
-// Convert JSON file to PARQUET file
+// Convert JSON file to Parquet file
 $sql = "COPY (SELECT * FROM '/tmp/logs.json') TO '/tmp/logs.parquet'";
 $entityManager->getConnection()->executeStatement($sql);
 
@@ -422,7 +429,7 @@ dump($repository->findAll());
 #     +log: "log text 2"
 ```
 
-## Read PARQUET files with Doctrine ORM
+## Read Parquet files with Doctrine ORM
 
 ```php
 namespace App\Entity;
@@ -444,7 +451,7 @@ readonly class LogsParquet
 file_put_contents('/tmp/logs.json', json_encode(['log' => 'log text']) . PHP_EOL, FILE_APPEND);
 file_put_contents('/tmp/logs.json', json_encode(['log' => 'log text 2']) . PHP_EOL, FILE_APPEND);
 
-// Convert JSON file to PARQUET file
+// Convert JSON file to Parquet file
 // use Doctrine\ORM\EntityManagerInterface from DI
 $conn = $entityManager->getConnection();
 $conn->executeStatement("COPY (SELECT * FROM '/tmp/logs.json') TO '/tmp/logs.parquet'");
@@ -467,7 +474,7 @@ Different compression or dictionary algorithms can be applied to each column. Al
 
 Note: You can read and save Parquet files on local file systems or directly on [S3 object storage](https://duckdb.org/docs/lts/core_extensions/httpfs/s3api).
 
-## Read and write PARQUET files with SQL Query Builder
+## Read and write Parquet files with SQL Query Builder
 
 ```php
 // use Doctrine\ORM\EntityManagerInterface from DI
@@ -569,7 +576,7 @@ dump(array_map('json_encode', $rows));
 #   {"train_number":"647","station_name":"Berlin-Spandau","delay_in_min":146,"hour":4,"departure_is_canceled":false}
 ```
 
-## Copy data from MariaDB to a parquet file
+## Copy data from MariaDB to a Parquet file
 
 Start a MariaDB container, create and fill "orders" table:
 
@@ -582,7 +589,7 @@ mysql -h 127.0.0.1 -u root -psecret testdb -e "
 "
 ```
 
-Use DuckDB [MySQL extension](https://duckdb.org/docs/lts/core_extensions/mysql) to copy "orders" table from MariaDB to a parquet file:
+Use DuckDB [MySQL extension](https://duckdb.org/docs/lts/core_extensions/mysql) to copy "orders" table from MariaDB to a Parquet file:
 
 ```php
 // use Doctrine\ORM\EntityManagerInterface from DI
@@ -611,7 +618,7 @@ dump($rows);
 #     "origin" => "offline"
 ```
 
-## Copy data from PostgreSQL to a parquet file
+## Copy data from PostgreSQL to a Parquet file
 
 Start PostgreSQL container, create and fill "orders" table:
 
@@ -624,7 +631,7 @@ PGPASSWORD=secret psql -h 127.0.0.1 -U postgres -c "
 "
 ```
 
-Use DuckDB [PostgreSQL extension](https://duckdb.org/docs/lts/core_extensions/postgres) to copy "orders" table from PostgreSQL to a parquet file:
+Use DuckDB [PostgreSQL extension](https://duckdb.org/docs/lts/core_extensions/postgres) to copy "orders" table from PostgreSQL to a Parquet file:
 
 ```php
 // use Doctrine\ORM\EntityManagerInterface from DI
