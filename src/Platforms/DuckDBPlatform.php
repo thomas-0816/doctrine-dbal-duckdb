@@ -39,6 +39,10 @@ class DuckDBPlatform extends AbstractPlatform
     public function __construct()
     {
         parent::__construct(UnquotedIdentifierFolding::NONE);
+
+        if (! Type::hasType('duckdb')) {
+            Type::addType('duckdb', new DuckDBType('duckdb'));
+        }
     }
 
     public function getCreateDatabaseSQL(string $name): string
