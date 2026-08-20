@@ -171,7 +171,17 @@ dump($result->fetchAllAssociative());
 #     "price" => 12.34
 ```
 
-## work in progress ...
+## Schema Builder
+
+work in progress ...
+
+## Insert with Query Builder
+
+work in progress ...
+
+## Doctrine Entities
+
+work in progress ...
 
 ## Read CSV files with SQL Query Builder
 
@@ -232,8 +242,6 @@ readonly class TestCsv
 ```
 
 ```php
-use App\Entity\TestCsv;
-
 $list = [
     ['aaa', 'bbb', 'ccc'],
     ['123', '456', '789'],
@@ -418,9 +426,7 @@ $conn->executeStatement("CREATE TABLE table1 (id integer primary key, text varch
 
 $conn->createQueryBuilder()->insert('table1')
     ->values(['id' => 1, 'text' => '?', 'data' => '?'])
-    ->setParameter(0, 1)
-    ->setParameter(1, 'Hello DuckDB')
-    ->setParameter(2, ['foo' => 'bar', 'baz' => 42])
+    ->setParameters([1, 'Hello DuckDB', ['foo' => 'bar', 'baz' => 42]])
     ->executeStatement();
 
 $conn->executeStatement("COPY (SELECT * FROM table1) TO '/tmp/table1.parquet'");
@@ -601,23 +607,30 @@ dump($rows);
 Special types can be defined by using `columndefinition`:
 
 ```php
+use Doctrine\DBAL\Types\Types;
+
 // use Doctrine\ORM\EntityManagerInterface from DI
 $schema = $entityManager->getConnection()->createSchemaManager();
 $sequence = $schema->introspectSchema()->createSequence('events_id_seq');
 $schema->createSequence($sequence);
 
 $table = $schema->introspectSchema()->createTable('events');
-$table->addColumn('id', Types::INTEGER, ['default' => "nextval('events_id_seq')"]);
-$table->addColumn('numbers', Types::JSON, ['columndefinition' => 'integer[]']);
-$table->addColumn('categories', Types::JSON, ['columndefinition' => 'varchar[]']);
-$table->addColumn('person', Types::JSON, ['columndefinition' => 'STRUCT(v VARCHAR, va VARCHAR[], d DECIMAL)']);
+$table->addColumn('id', 'integer', ['default' => "nextval('events_id_seq')"]);
+$table->addColumn('numbers', 'duckdb', ['columndefinition' => 'integer[]']);
+$table->addColumn('categories', 'duckdb', ['columndefinition' => 'varchar[]']);
+$table->addColumn('person', 'duckdb', ['columndefinition' => 'STRUCT(v VARCHAR, va VARCHAR[], d DECIMAL)']);
 $table->setPrimaryKey(['id']);
 $schema->createTable($table);
 
-$person = new Person();
-$person->v = 'foo';
-$person->va = ['bar', 'baz'];
-$person->d = 12.34;
+class Person {
+    public function __construct(
+        public string $v,
+        public array $va,
+        public float $d
+    ) {}
+}
+
+$person = new Person('foo', ['bar', 'baz'], 12.34);
 
 $entityManager->getConnection()->createQueryBuilder()->insert('events')
     ->values(['numbers' => '?', 'categories' => '?', 'person' => '?'])
@@ -649,7 +662,86 @@ dump($result);
 
 ## Doctrine ORM for special types
 
-Work in progress ...
+Special types can be defined by using `columndefinition`:
+
+```php
+namespace App\Entity;
+
+use Doctrine\ORM\Mapping as ORM;
+
+class Person {
+    public function __construct(
+        public string $v,
+        public array $va,
+        public float $d
+    ) {}
+}
+
+#[ORM\Entity]
+#[ORM\HasLifecycleCallbacks]
+class Event
+{
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column]
+    public int $id;
+
+    #[ORM\Column(type: 'duckdb', columnDefinition: 'integer[]')]
+    public array $numbers;
+
+    #[ORM\Column(type: 'duckdb', columnDefinition: 'varchar[]')]
+    public array $categories;
+
+    #[ORM\Column(type: 'duckdb', columnDefinition: 'STRUCT(v VARCHAR, va VARCHAR[], d DECIMAL)')]
+    public array|Person $person;
+
+    /** @var Person[] */
+    #[ORM\Column(type: 'duckdb', columnDefinition: 'STRUCT(v VARCHAR, va VARCHAR[], d DECIMAL)[]')]
+    public array $persons;
+
+    #[ORM\PostLoad]
+    public function postLoad(): void
+    {
+        $this->person = new Person(...$this->person);
+        $this->persons = array_map(fn($item) => is_array($item) ? new Person(...$item) : $item, $this->persons);
+    }
+}
+
+$person = new Person('foo', ['bar', 'baz'], 12.34);
+
+$event = new Event();
+$event->numbers = [21, 42];
+$event->categories = ['cat1', 'cat2'];
+$event->person = $person;
+$event->persons = [$person];
+$this->entityManager->persist($event);
+$this->entityManager->flush();
+
+$repository = $this->entityManager->getRepository(Event::class);
+dump($repository->findAll());
+
+# App\Entity\Event
+#   +id: 1
+#   +numbers: array
+#     0 => 21
+#     1 => 42
+#   +categories: array
+#     0 => "cat1"
+#     1 => "cat2"
+#   +person: App\Entity\Person
+#     +v: "foo"
+#     +va: array:2 [
+#       0 => "bar"
+#       1 => "baz"
+#     +d: 12.34
+#   +persons: array:1 [
+#     0 => App\Entity\Person
+#       +v: "foo"
+#       +va: array:2 [
+#         0 => "bar"
+#         1 => "baz"
+#       +d: 12.34
+```
 
 ## Views
 
