@@ -54,7 +54,7 @@ doctrine:
             DuckDb\DBAL\Platforms\DuckDBPlatform: sequence
 ```
 
-For testing or reading external files, use the special in-memory database `duckdb::memory:`.
+For testing or reading external files, use the special in-memory database `duckdb::memory:`
 
 After changing doctrine.yaml, clear the cache:
 
@@ -862,7 +862,7 @@ composer require symfony/monolog-bundle
 tail -f var/log/dev.log | grep -v "deprecation"
 ```
 
-## Configuration without Doctrine
+## Configuration without Doctrine ORM
 
 Change `config/services.yaml`
 
@@ -876,6 +876,12 @@ services:
             $params:
                 path: '%kernel.project_dir%/var/db.duckdb' # or ':memory:'
                 driverClass: 'DuckDb\DBAL\Driver'
+                driverOptions:
+                    !php/const PDO::DUCKDB_ATTR_CONFIG:
+                        TimeZone: 'Europe/Berlin'
+                        # threads: 4 # max. number of threads
+                        # memory_limit: '4GB' # max. memory usage
+                        # access_mode: 'read_only' # open database file read-only
     Doctrine\DBAL\Connection: '@doctrine.dbal.connection'
 ```
 
@@ -883,7 +889,30 @@ Connection test:
 
 ```php
 // use Doctrine\DBAL\Connection from DI
-$result = $connection->executeQuery('SELECT version(), current_database()')
+$result = $connection->executeQuery('SELECT version(), current_database()');
+dump($result->fetchAssociative());
+```
+
+## Connection setup without Symfony Framework Bundle
+
+```php
+use Doctrine\DBAL\DriverManager;
+use DuckDb\DBAL\Driver;
+use PDO;
+
+$connection = DriverManager::getConnection([
+    'driverClass' => Driver::class,
+    'dbname' => ':memory:',
+    'driverOptions' => [
+        PDO::DUCKDB_ATTR_CONFIG => [
+            'TimeZone' => 'Europe/Berlin',
+            # 'threads' => 4, # max. number of threads
+            # 'memory_limit' => '4GB', # max. memory usage
+            # 'access_mode' => 'read_only', # open database file read-only
+        ],
+    ],
+]);
+$result = $connection->executeQuery('SELECT version(), current_database()');
 dump($result->fetchAssociative());
 ```
 
