@@ -201,7 +201,14 @@ $schema->dropTable('events');
 
 ## Insert with Query Builder
 
-work in progress ...
+```php
+// use Doctrine\ORM\EntityManagerInterface from DI
+$entityManager->getConnection()->createQueryBuilder()
+    ->insert('events')
+    ->values(['category' => '?', 'amount' => '?', 'tags' => '?'])
+    ->setParameters(['conference', 42.21, ['Hello', 'DuckDB']])
+    ->executeStatement();
+```
 
 ## Doctrine Entities
 
