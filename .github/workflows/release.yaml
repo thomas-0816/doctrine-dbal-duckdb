@@ -31,6 +31,7 @@ jobs:
         thread-safety:
           - nts
         symfony-version:
+          - 6
           - 7
           - 8
         exclude:
