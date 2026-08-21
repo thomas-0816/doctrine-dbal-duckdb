@@ -11,7 +11,7 @@
     "require": {
         "php": ">= 8.2",
         "ext-pdo_duckdb": "*",
-        "doctrine/dbal": "^4.4"
+        "doctrine/dbal": ">= 4.4.0"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3",
