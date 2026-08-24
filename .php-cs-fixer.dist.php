@@ -6,6 +6,7 @@ use PhpCsFixer\Config;
 use PhpCsFixer\Finder;
 
 return (new Config())
+    ->setUnsupportedPhpVersionAllowed(true)
     ->setRiskyAllowed(false)
     ->setRules([
         '@auto' => true,
