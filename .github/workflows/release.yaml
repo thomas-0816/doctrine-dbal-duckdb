@@ -28,6 +28,7 @@ jobs:
           - 8.3
           - 8.4
           - 8.5
+          - 8.6
         thread-safety:
           - nts
         symfony-version:
@@ -39,6 +40,10 @@ jobs:
             symfony-version: 8
           - php-version: 8.3
             symfony-version: 8
+          - php-version: 8.6
+            symfony-version: 6
+          - php-version: 8.6
+            os: windows-2022
     steps:
       - name: Setup PHP ${{ matrix.php-version }} ${{ matrix.thread-safety }}
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
@@ -52,6 +57,7 @@ jobs:
       - name: Test
         env:
           symfony_version: ${{ matrix.symfony-version }}
+          BOX_REQUIREMENT_CHECKER: false
         shell: bash
         run: |
           uname -a
@@ -59,7 +65,7 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then
             pie install -v thomas-0816/pdo-duckdb-php
           else
-            sudo pie install -v thomas-0816/pdo-duckdb-php
+            sudo -p pie install -v thomas-0816/pdo-duckdb-php
           fi
           php -m | grep duckdb
           composer create-project symfony/skeleton:^${symfony_version} example-app
