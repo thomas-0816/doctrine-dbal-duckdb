@@ -29,7 +29,7 @@ composer require thomas-0816/doctrine-dbal-duckdb
 
 `pdo_duckdb` is a native DuckDB database driver for the PHP Data Objects (PDO) interface.\
 As a native PHP extension, it is implemented in C/C++ and does not require PHP FFI or preloading.\
-It is also thread safe and fully tested with FrankenPHP (PHP-ZTS).\
+It is also thread safe and fully tested with FrankenPHP (PHP-ZTS) and Swoole.\
 The release packages contain pre-compiled binaries for all supported platforms and DuckDB is directly included.\
 DuckDB extensions work the same way as they do in DuckDB CLI.
 
