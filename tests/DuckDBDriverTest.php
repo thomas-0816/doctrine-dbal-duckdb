@@ -744,6 +744,7 @@ final class DuckDBDriverTest extends TestCase
 
     public function testExcel(): void
     {
+        $excelFile = tempnam(sys_get_temp_dir(), 'excel') . '.xlsx';
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
         $connection = DriverManager::getConnection($connectionParams);
         $connection->executeStatement("INSTALL excel; LOAD excel");
@@ -752,10 +753,10 @@ final class DuckDBDriverTest extends TestCase
             ->values(['id' => '?', 'text' => '?', 'amount' => '?'])
             ->setParameters([1, 'Hello Excel 🦆', 42.21])
             ->executeStatement();
-        $connection->executeStatement("COPY (SELECT * FROM table1) TO '/tmp/table1.xlsx'");
+        $connection->executeStatement("COPY (SELECT * FROM table1) TO '{$excelFile}'");
         $rows = $connection->createQueryBuilder()
             ->select('*')
-            ->from("'/tmp/table1.xlsx'")
+            ->from("'{$excelFile}'")
             ->fetchAllAssociative();
         Assert::assertSame([['A1' => 1.0, 'B1' => 'Hello Excel 🦆', 'C1' => 42.21]], $rows);
     }
