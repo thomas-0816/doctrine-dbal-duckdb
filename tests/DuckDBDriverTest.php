@@ -723,6 +723,30 @@ final class DuckDBDriverTest extends TestCase
         $connection->getDatabasePlatform()->getDropForeignKeySQL('fk_parent', 'child');
     }
 
+    public function testVectorSimilaritySearch(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+
+        // use Doctrine\ORM\EntityManagerInterface from DI
+        $connection->executeStatement('INSTALL vss; LOAD vss');
+
+        $connection->executeStatement('CREATE TABLE events (id int primary key, embeddings float[3])');
+        $connection->executeStatement("CREATE INDEX events_hnsw ON events USING HNSW (embeddings) WITH (metric = 'cosine')");
+
+        $connection->executeStatement('INSERT INTO events VALUES (1, [1, 2, 3])');
+        $connection->executeStatement('INSERT INTO events VALUES (2, [4, 5, 6])');
+
+        $row = $connection->createQueryBuilder()
+            ->select('id', 'array_cosine_distance(embeddings, [1.1, 2.1, 3.1]::FLOAT[3]) as distance')
+            ->from('events')
+            ->where('distance <= 0.01')
+            ->orderBy('distance')
+            ->fetchAssociative();
+        Assert::assertSame(1, $row['id']);
+        Assert::assertEqualsWithDelta(0.0001408, $row['distance'], 0.0000001);
+    }
+
     private function setStdOutLogger(Configuration $config): void
     {
         $logger = new class extends AbstractLogger {
