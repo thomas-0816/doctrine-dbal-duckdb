@@ -488,7 +488,7 @@ $conn = $entityManager->getConnection();
 $conn->executeStatement("CREATE TABLE table1 (id integer primary key, text varchar, data JSON)");
 
 $conn->createQueryBuilder()->insert('table1')
-    ->values(['id' => 1, 'text' => '?', 'data' => '?'])
+    ->values(['id' => '?', 'text' => '?', 'data' => '?'])
     ->setParameters([1, 'Hello DuckDB', ['foo' => 'bar', 'baz' => 42]])
     ->executeStatement();
 
@@ -507,6 +507,34 @@ dump($rows);
 #     "data" => array
 #       "foo" => "bar"
 #       "baz" => 42
+```
+
+## Read and write Excel files
+
+```php
+// use Doctrine\ORM\EntityManagerInterface from DI
+$conn = $entityManager->getConnection();
+$conn->executeStatement("INSTALL excel; LOAD excel");
+$conn->executeStatement('CREATE TABLE table1 (id INTEGER, text VARCHAR, amount DECIMAL(10, 2))');
+
+$conn->createQueryBuilder()->insert('table1')
+    ->values(['id' => '?', 'text' => '?', 'amount' => '?'])
+    ->setParameters([1, 'Hello Excel 🦆', 42.21])
+    ->executeStatement();
+
+$conn->executeStatement("COPY (SELECT * FROM table1) TO '/tmp/table1.xlsx'");
+
+$rows = $conn->createQueryBuilder()
+    ->select('*')
+    ->from("'/tmp/table1.xlsx'")
+    ->fetchAllAssociative();
+dump($rows);
+
+# array
+#   array
+#     "A1" => 1.0
+#     "B1" => "Hello Excel 🦆"
+#     "C1" => 42.21
 ```
 
 ## Read public data using HTTPs, JSON, CSV and Parquet
@@ -806,6 +834,32 @@ dump($repository->findAll());
 #         0 => "bar"
 #         1 => "baz"
 #       +d: 12.34
+```
+
+## Vector Similarity Search (HNSW)
+
+```php
+// use Doctrine\ORM\EntityManagerInterface from DI
+$conn = $entityManager->getConnection();
+$conn->executeStatement('INSTALL vss; LOAD vss');
+
+$conn->executeStatement('CREATE TABLE table1 (id int primary key, embeddings float[3])');
+$conn->executeStatement("CREATE INDEX table1_hnsw ON table1 USING HNSW (embeddings) WITH (metric = 'cosine')");
+
+$conn->executeStatement('INSERT INTO table1 VALUES (1, [1, 2, 3])');
+$conn->executeStatement('INSERT INTO table1 VALUES (2, [4, 5, 6])');
+
+$rows = $conn->createQueryBuilder()
+    ->select('id', 'array_cosine_distance(embeddings, [1.1, 2.1, 3.1]::FLOAT[3]) as distance')
+    ->from('table1')
+    ->where('distance <= 0.01')
+    ->orderBy('distance')
+    ->fetchAssociative();
+dump($rows);
+
+# array
+#   "id" => 1
+#   "distance" => 0.0001407862
 ```
 
 ## Views

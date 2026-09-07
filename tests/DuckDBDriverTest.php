@@ -727,16 +727,11 @@ final class DuckDBDriverTest extends TestCase
     {
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
         $connection = DriverManager::getConnection($connectionParams);
-
-        // use Doctrine\ORM\EntityManagerInterface from DI
         $connection->executeStatement('INSTALL vss; LOAD vss');
-
         $connection->executeStatement('CREATE TABLE events (id int primary key, embeddings float[3])');
         $connection->executeStatement("CREATE INDEX events_hnsw ON events USING HNSW (embeddings) WITH (metric = 'cosine')");
-
         $connection->executeStatement('INSERT INTO events VALUES (1, [1, 2, 3])');
         $connection->executeStatement('INSERT INTO events VALUES (2, [4, 5, 6])');
-
         $row = $connection->createQueryBuilder()
             ->select('id', 'array_cosine_distance(embeddings, [1.1, 2.1, 3.1]::FLOAT[3]) as distance')
             ->from('events')
@@ -745,6 +740,24 @@ final class DuckDBDriverTest extends TestCase
             ->fetchAssociative();
         Assert::assertSame(1, $row['id']);
         Assert::assertEqualsWithDelta(0.0001408, $row['distance'], 0.0000001);
+    }
+
+    public function testExcel(): void
+    {
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $connection->executeStatement("INSTALL excel; LOAD excel");
+        $connection->executeStatement('CREATE TABLE table1 (id INTEGER, text VARCHAR, amount DECIMAL(10, 2))');
+        $connection->createQueryBuilder()->insert('table1')
+            ->values(['id' => '?', 'text' => '?', 'amount' => '?'])
+            ->setParameters([1, 'Hello Excel 🦆', 42.21])
+            ->executeStatement();
+        $connection->executeStatement("COPY (SELECT * FROM table1) TO '/tmp/table1.xlsx'");
+        $rows = $connection->createQueryBuilder()
+            ->select('*')
+            ->from("'/tmp/table1.xlsx'")
+            ->fetchAllAssociative();
+        Assert::assertSame([['A1' => 1.0, 'B1' => 'Hello Excel 🦆', 'C1' => 42.21]], $rows);
     }
 
     private function setStdOutLogger(Configuration $config): void
