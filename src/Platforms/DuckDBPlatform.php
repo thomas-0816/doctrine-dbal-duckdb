@@ -229,7 +229,7 @@ class DuckDBPlatform extends AbstractPlatform
         $default = $this->getDefaultValueDeclarationSQL($column);
         $notnull = ! empty($column['notnull']) ? ' NOT NULL' : '';
         $collation = ! empty($column['collation']) ? ' ' . $this->getColumnCollationDeclarationSQL($column['collation']) : '';
-        $type = $column['type'] ?? Type::getType($column['typeName']);
+        $type = $column['type'] ?? Type::getType($column['typeName'] ?? '');
         $typeDecl = $column['columnDefinition'] ?? $type->getSQLDeclaration($column, $this) ?? '';
         $declaration = $typeDecl . $charset . $default . $notnull . $collation;
 
