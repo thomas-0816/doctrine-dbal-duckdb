@@ -187,8 +187,6 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
 
     /**
      * @return iterable<IndexColumnMetadataRow>
-     *
-     * @throws Exception
      */
     private function getIndexColumns(?string $schemaName, ?string $tableName): iterable
     {
@@ -239,8 +237,6 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
 
     /**
      * @return iterable<PrimaryKeyConstraintColumnRow>
-     *
-     * @throws Exception
      */
     private function getPrimaryKeyConstraintColumns(?string $schemaName, ?string $tableName): iterable
     {
