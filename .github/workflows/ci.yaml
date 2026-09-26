@@ -50,6 +50,10 @@ jobs:
         thread-safety:
           - nts
           - zts
+        dbal:
+          - 4.4.4
+          - 4.5.0
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -66,6 +70,7 @@ jobs:
         shell: bash
         env:
           BOX_REQUIREMENT_CHECKER: false
+          dbal: ${{ matrix.dbal }}
         run: |
           uname -a
           php -v
@@ -77,6 +82,8 @@ jobs:
           php -m | grep duckdb
           rm composer.lock
           composer install
+          composer require doctrine/dbal:${dbal}
+          composer show | grep dbal
           if [ "$RUNNER_OS" != "Windows" ]; then
             vendor/bin/php-cs-fixer fix --dry-run --allow-risky=yes --diff
             vendor/bin/phpstan analyse

@@ -252,7 +252,9 @@ final class DuckDBSchemaTest extends TestCase
         $table = $toSchema->getTable('t2');
         $table->addColumn('v2', 'duckdb', ['columndefinition' => 'varchar[]'])->setDefault('[21]');
         $table->addUniqueConstraint(['v2']); // no-op
-        $table->getColumn('ia')->setType(new DuckDBType('varchar[]'));
+        $table->getColumn('ia')->setType($connection->getDatabasePlatform()->getDoctrineType('varchar[]'));
+        //$table->getColumn('ia')->setTypeName('duckdb:varchar[]');
+        //$table->getColumn('ia')->setColumnDefinition('varchar[]');
         $table->getColumn('ia')->setNotnull(true)->setComment('foo')->setDefault(null);
         $table->getColumn('v1')->setDefault('21');
         $table->addUniqueIndex(['v1']);

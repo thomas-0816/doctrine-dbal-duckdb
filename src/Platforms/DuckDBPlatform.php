@@ -229,7 +229,8 @@ class DuckDBPlatform extends AbstractPlatform
         $default = $this->getDefaultValueDeclarationSQL($column);
         $notnull = ! empty($column['notnull']) ? ' NOT NULL' : '';
         $collation = ! empty($column['collation']) ? ' ' . $this->getColumnCollationDeclarationSQL($column['collation']) : '';
-        $typeDecl    = $column['columnDefinition'] ?? $column['type']->getSQLDeclaration($column, $this);
+        $type = $column['type'] ?? Type::getType($column['typeName']);
+        $typeDecl = $column['columnDefinition'] ?? $type->getSQLDeclaration($column, $this) ?? '';
         $declaration = $typeDecl . $charset . $default . $notnull . $collation;
 
         return $name . ' ' . $declaration;
@@ -789,7 +790,13 @@ class DuckDBPlatform extends AbstractPlatform
             return Type::getType($this->getDoctrineTypeMapping($typeName));
         }
 
-        return new DuckDBType(strtolower($dbType));
+        $declaration = strtolower($dbType);
+        $typeName    = 'duckdb:' . $declaration;
+        if (! Type::hasType($typeName)) {
+            Type::addType($typeName, new DuckDBType($declaration));
+        }
+
+        return Type::getType($typeName);
     }
 
     protected function initializeDoctrineTypeMappings(): void
