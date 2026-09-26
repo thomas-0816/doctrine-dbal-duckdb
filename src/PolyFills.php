@@ -6,11 +6,11 @@ namespace Doctrine\DBAL\Schema\Metadata {
         final readonly class UniqueConstraintColumnMetadataRow
         {
             public function __construct(
-                private ?string $schemaName, // @phpstan-ignore property.onlyWritten
-                private string $tableName, // @phpstan-ignore property.onlyWritten
-                private int|string|null $id, // @phpstan-ignore property.onlyWritten
-                private ?string $name, // @phpstan-ignore property.onlyWritten
-                private string $columnName, // @phpstan-ignore property.onlyWritten
+                public ?string $schemaName,
+                public string $tableName,
+                public int|string|null $id,
+                public ?string $name,
+                public string $columnName
             ) {}
         }
     }
