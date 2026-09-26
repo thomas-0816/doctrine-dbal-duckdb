@@ -54,6 +54,13 @@ jobs:
           - 4.4.0
           - 4.4.*
           - 4.5.0
+        exclude:
+          - os: ubuntu-24.04-arm
+            thread-safety: zts
+          - os: macos-15
+            thread-safety: zts
+          - os: windows-2022
+            thread-safety: zts
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -85,7 +92,7 @@ jobs:
           composer install
           composer require doctrine/dbal:${dbal}
           composer show | grep dbal
-          if [ "$RUNNER_OS" != "Windows" ]; then
+          if [ "$RUNNER_IMAGE" = "ubuntu-24.04" ]; then
             vendor/bin/php-cs-fixer fix --dry-run --allow-risky=yes --diff
             vendor/bin/phpstan analyse
           fi
