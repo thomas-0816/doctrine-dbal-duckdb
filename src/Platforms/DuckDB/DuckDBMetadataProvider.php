@@ -18,6 +18,7 @@ use Doctrine\DBAL\Schema\Metadata\SchemaMetadataRow;
 use Doctrine\DBAL\Schema\Metadata\SequenceMetadataRow;
 use Doctrine\DBAL\Schema\Metadata\TableColumnMetadataRow;
 use Doctrine\DBAL\Schema\Metadata\TableMetadataRow;
+use Doctrine\DBAL\Schema\Metadata\UniqueConstraintColumnMetadataRow;
 use Doctrine\DBAL\Schema\Metadata\ViewMetadataRow;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
 
@@ -261,6 +262,55 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
             $columnNames = array_map(static fn($name) => trim($name, '"'), (array) $row['constraint_column_names']);
             foreach (array_filter($columnNames) as $columnName) {
                 yield new PrimaryKeyConstraintColumnRow($row['schema_name'], $row['table_name'], $row['constraint_name'], true, $columnName);
+            }
+        }
+    }
+
+    /**
+     * @return iterable<UniqueConstraintColumnMetadataRow>
+     */
+    public function getUniqueConstraintColumnsForAllTables(): iterable
+    {
+        return $this->getUniqueConstraintColumns(null, null);
+    }
+
+    /**
+     * @return iterable<UniqueConstraintColumnMetadataRow>
+     */
+    public function getUniqueConstraintColumnsForTable(?string $schemaName, string $tableName): iterable
+    {
+        $schemaName === null && throw UnsupportedName::fromNullSchemaName(__METHOD__);
+
+        return $this->getUniqueConstraintColumns($schemaName, $tableName);
+    }
+
+    /**
+     * @return iterable<UniqueConstraintColumnMetadataRow>
+     */
+    private function getUniqueConstraintColumns(?string $schemaName, ?string $tableName): iterable
+    {
+        $sql = sprintf(
+            "
+                SELECT schema_name, table_name, constraint_name, constraint_column_names
+                FROM duckdb_constraints()
+                WHERE database_name = current_database() AND constraint_type = 'UNIQUE'
+                %s
+                ORDER BY schema_name, table_name, constraint_name
+            ",
+            ($schemaName !== null && $tableName !== null)
+                ? sprintf('AND schema_name = %s AND table_name = %s', $this->connection->quote($schemaName), $this->connection->quote($tableName))
+                : ''
+        );
+        foreach ($this->connection->iterateAssociative($sql) as $row) {
+            $columnNames = array_map(static fn($name) => trim((string) $name, '"'), (array) $row['constraint_column_names']);
+            foreach (array_filter($columnNames) as $columnName) {
+                yield new UniqueConstraintColumnMetadataRow(
+                    $row['schema_name'],
+                    $row['table_name'],
+                    null,
+                    $row['constraint_name'],
+                    $columnName
+                );
             }
         }
     }
