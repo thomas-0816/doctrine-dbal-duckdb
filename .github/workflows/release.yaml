@@ -32,9 +32,10 @@ jobs:
         thread-safety:
           - nts
         symfony-version:
-          - 6
-          - 7
-          - 8
+          - 6.*
+          - 7.*
+          - 8.0.*
+          - 8.1.*
         exclude:
           - php-version: 8.2
             symfony-version: 8
@@ -66,7 +67,7 @@ jobs:
             sudo -E pie install -v thomas-0816/pdo-duckdb-php
           fi
           php -m | grep duckdb
-          composer create-project symfony/skeleton:^${symfony_version} example-app
+          composer create-project symfony/skeleton:${symfony_version} example-app
           cd example-app
           composer require symfony/orm-pack --no-interaction
           composer require --dev symfony/maker-bundle
