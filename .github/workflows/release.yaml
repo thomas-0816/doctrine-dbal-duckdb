@@ -32,6 +32,7 @@ jobs:
         thread-safety:
           - nts
         symfony-version:
+          - 5.*
           - 6.*
           - 7.*
           - 8.1.*
