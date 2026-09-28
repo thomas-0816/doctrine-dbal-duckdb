@@ -35,11 +35,20 @@ jobs:
           - 6.*
           - 7.*
           - 8.1.*
+        symfony-minor-version:
+          - lowest
+          - highest
         exclude:
           - php-version: 8.2
             symfony-version: 8.1.*
           - php-version: 8.3
             symfony-version: 8.1.*
+          - os: ubuntu-24.04-arm
+            symfony-minor-version: lowest
+          - os: macos-15
+            symfony-minor-version: lowest
+          - os: windows-2022
+            symfony-minor-version: lowest
     steps:
       - name: Setup PHP ${{ matrix.php-version }} ${{ matrix.thread-safety }}
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
@@ -53,6 +62,7 @@ jobs:
       - name: Test
         env:
           symfony_version: ${{ matrix.symfony-version }}
+          symfony_minor_version: ${{ matrix.symfony-minor-version }}
           BOX_REQUIREMENT_CHECKER: false
         shell: bash
         run: |
@@ -66,6 +76,10 @@ jobs:
           php -m | grep duckdb
           composer create-project symfony/skeleton:${symfony_version} example-app
           cd example-app
+          if [ "$symfony_minor_version" = "lowest" ]; then
+            rm composer.lock
+            composer require symfony/framework:${symfony_version} --prefer-lowest
+          fi
           composer require symfony/orm-pack --no-interaction
           composer require --dev symfony/maker-bundle
           composer require --dev psy/psysh
