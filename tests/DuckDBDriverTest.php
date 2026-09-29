@@ -359,7 +359,7 @@ final class DuckDBDriverTest extends TestCase
     {
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
         $connection = DriverManager::getConnection($connectionParams);
-        Assert::assertSame('v1.5.5', $connection->getServerVersion());
+        Assert::assertSame('v1.5.6', $connection->getServerVersion());
     }
 
     public function testGetNativeConnection(): void
@@ -368,7 +368,7 @@ final class DuckDBDriverTest extends TestCase
         $connection = DriverManager::getConnection($connectionParams);
         /** @var PDO */
         $pdo = $connection->getNativeConnection();
-        Assert::assertSame('v1.5.5', $pdo->query('SELECT version()')->fetchColumn());
+        Assert::assertSame('v1.5.6', $pdo->query('SELECT version()')->fetchColumn());
     }
 
     public function testPrepareException(): void
