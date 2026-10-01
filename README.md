@@ -21,25 +21,6 @@ Install and setup [pdo_duckdb](https://github.com/thomas-0816/pdo-duckdb-php) da
 pie install thomas-0816/pdo-duckdb-php
 ```
 
-Install and setup Doctrine DBAL for DuckDB:
-
-```bash
-composer require thomas-0816/doctrine-dbal-duckdb
-```
-
-`pdo_duckdb` is a native DuckDB database driver for the PHP Data Objects (PDO) interface.\
-As a native PHP extension, it is implemented in C/C++ and does not require PHP FFI or preloading.\
-It is also thread safe and fully tested with php-cli, php-fpm, mod_php, FrankenPHP (PHP-ZTS) and Swoole.\
-The release packages contain pre-compiled binaries for all supported platforms and DuckDB is directly included.\
-DuckDB extensions work the same way as they do in DuckDB CLI.
-
-Install and load pdo_duckdb on demand
-
-```bash
-pie install --skip-enable-extension thomas-0816/pdo-duckdb-php
-php -d extension=pdo_duckdb some_script.php
-```
-
 ## Configuration
 
 Change `config/packages/doctrine.yaml`
@@ -73,6 +54,34 @@ Connection test:
 
 ```bash
 php bin/console dbal:run-sql 'SELECT version(), current_database()'
+```
+
+Install and setup Doctrine DBAL for DuckDB:
+
+```bash
+composer require thomas-0816/doctrine-dbal-duckdb
+```
+
+`pdo_duckdb` is a native DuckDB database driver for the PHP Data Objects (PDO) interface.\
+As a native PHP extension, it is implemented in C/C++ and does not require PHP FFI or preloading.\
+It is also thread safe and fully tested with php-cli, php-fpm, mod_php, FrankenPHP (PHP-ZTS) and Swoole.\
+The release packages contain pre-compiled binaries for all supported platforms and DuckDB is directly included.\
+DuckDB extensions work the same way as they do in DuckDB CLI.
+
+## Install and load pdo_duckdb on demand
+
+```bash
+pie install --skip-enable-extension thomas-0816/pdo-duckdb-php
+php -d extension=pdo_duckdb bin/console SomeCommand
+```
+
+On demand connection without `config/packages/doctrine.yaml`:
+
+```php
+$connection = DriverManager::getConnection([
+    'driverClass' => Driver::class, 'dbname' => ':memory:',
+    'driverOptions' => [PDO::DUCKDB_ATTR_CONFIG => ['TimeZone' => 'Europe/Berlin']]
+]);
 ```
 
 ## ORM Usage
