@@ -78,6 +78,9 @@ php -d extension=pdo_duckdb bin/console SomeCommand
 On demand connection without `config/packages/doctrine.yaml`:
 
 ```php
+use Doctrine\DBAL\DriverManager;
+use DuckDb\DBAL\Driver;
+
 $connection = DriverManager::getConnection([
     'driverClass' => Driver::class, 'dbname' => ':memory:',
     'driverOptions' => [PDO::DUCKDB_ATTR_CONFIG => ['TimeZone' => 'Europe/Berlin']]
