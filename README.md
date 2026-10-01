@@ -584,12 +584,7 @@ dump(array_map('json_encode', $rows));
 #   {"train_type":"ICE","train_number":"1541","delay_avg":66,"count":198}
 #   {"train_type":"ICE","train_number":"2587","delay_avg":44,"count":72}
 #   {"train_type":"ICE","train_number":"79152","delay_avg":44,"count":2}
-#   {"train_type":"ICE","train_number":"2214","delay_avg":43,"count":159}
-#   {"train_type":"ICE","train_number":"2311","delay_avg":42,"count":289}
-#   {"train_type":"ICE","train_number":"953","delay_avg":42,"count":79}
-#   {"train_type":"ICE","train_number":"526","delay_avg":41,"count":337}
-#   {"train_type":"ICE","train_number":"859","delay_avg":41,"count":80}
-#   {"train_type":"ICE","train_number":"2512","delay_avg":39,"count":28}
+...
 
 $rows = $entityManager->getConnection()->executeQuery("
     SELECT train_number, station_name, delay_in_min, hour(time) as hour, departure_is_canceled
@@ -603,12 +598,28 @@ dump(array_map('json_encode', $rows));
 #   {"train_number":"647","station_name":"Hamm (Westf) Hbf","delay_in_min":120,"hour":1,"departure_is_canceled":false}
 #   {"train_number":"647","station_name":"Bielefeld Hbf","delay_in_min":120,"hour":1,"departure_is_canceled":false}
 #   {"train_number":"647","station_name":"Minden (Westf)","delay_in_min":123,"hour":2,"departure_is_canceled":false}
-#   {"train_number":"647","station_name":"Hannover Hbf","delay_in_min":138,"hour":2,"departure_is_canceled":false}
-#   {"train_number":"647","station_name":"Wolfsburg Hbf","delay_in_min":135,"hour":3,"departure_is_canceled":false}
-#   {"train_number":"647","station_name":"Berlin Hauptbahnhof","delay_in_min":121,"hour":4,"departure_is_canceled":true}
-#   {"train_number":"647","station_name":"Berlin S\u00fcdkreuz","delay_in_min":120,"hour":4,"departure_is_canceled":false}
-#   {"train_number":"647","station_name":"Berlin-Spandau","delay_in_min":146,"hour":4,"departure_is_canceled":false}
+...
 ```
+
+## Read private data using REST APIs
+
+```php
+$url = 'https://httpbin.org/headers';
+$entityManager->getConnection()->executeStatement("CREATE SECRET http_auth (TYPE http, SCOPE '{$url}', BEARER_TOKEN 'some secret')");
+
+$rows = $entityManager->getConnection()->createQueryBuilder()
+    ->select('*')
+    ->from("read_json('{$url}?foo=bar')")
+    ->fetchAssociative();
+dump($rows);
+
+# Array
+#     [headers] => Array
+#         [Accept] => */*
+#         [Authorization] => Bearer some secret
+```
+
+See the documentation for [managing secrets](https://duckdb.org/docs/current/configuration/secrets_manager) and [read_json()](https://duckdb.org/docs/lts/data/json/loading_json).
 
 ## Copy data from MariaDB to a Parquet file
 
@@ -691,6 +702,44 @@ dump($rows);
 #     "customer" => 21
 #     "amount" => 12.21
 #     "origin" => "offline"
+```
+
+## Bulk data insertion
+
+Inserting many rows one by one is slow, use a single query to perform bulk data insertion.
+
+```php
+$data = [];
+for ($i = 0; $i < 1_000_000; $i++) {
+    $data[] = ['i1' => $i, 'v1' => 'foo' . $i];
+}
+
+$conn = $entityManager->getConnection();
+$conn->executeStatement('CREATE TABLE t1 (i1 integer, v1 varchar)');
+$conn->executeStatement("INSERT INTO t1 SELECT value->>'i1', value->>'v1' FROM json_each('" . json_encode($data) . "')");
+
+$result = $this->entityManager->getConnection()->createQueryBuilder()
+    ->select('count(*) as count')
+    ->from('t1')
+    ->fetchOne();
+dump($result); # 1000000
+```
+
+```php
+$data = [];
+for ($i = 0; $i < 1_000_000; $i++) {
+    $data[] = [$i, 'foo' . $i];
+}
+
+$conn = $entityManager->getConnection();
+$conn->executeStatement('CREATE TABLE t1 (i1 integer, v1 varchar)');
+$conn->executeStatement("INSERT INTO t1 SELECT value->>0, value->>1 FROM json_each('" . json_encode($data) . "')");
+
+$result = $conn->createQueryBuilder()
+    ->select('count(*) as count')
+    ->from('t1')
+    ->fetchOne();
+dump($result); # 1000000
 ```
 
 ## Schema and Query Builder for special types
@@ -892,6 +941,48 @@ $entityManager->getConnection()->transactional(function ($conn) {
     $conn->executeStatement("INSERT INTO test_csv SELECT * FROM '/tmp/test.csv'");
 });
 ```
+
+## Client-server mode (Quack Remote Protocol)
+
+Start the DuckDB server:
+
+```bash
+duckdb database.duckdb --cmd "CALL quack_serve('quack:127.0.0.1:9494', token='secret');"
+```
+
+For the client(s), use DUCKDB_ATTR_INIT_COMMAND in `config/packages/doctrine.yaml` to open the quack connection automatically:
+
+```yaml
+doctrine:
+    dbal:
+        url: 'duckdb::memory:'
+        driver_schemes:
+            duckdb: DuckDb\DBAL\Driver
+        options:
+            !php/const PDO::DUCKDB_ATTR_INIT_COMMAND:
+                "ATTACH 'quack:127.0.0.1:9494' AS remote (TOKEN 'secret'); USE remote;"
+```
+
+```php
+$conn = $this->entityManager->getConnection();
+// open quack connection on demand
+// $conn->executeStatement("ATTACH 'quack:127.0.0.1:9494' AS remote (TOKEN 'secret'); USE remote;");
+$conn->executeStatement('CREATE TABLE IF NOT EXISTS table1 (v VARCHAR, v2 VARCHAR)');
+$conn->executeStatement("INSERT INTO table1 VALUES ('foo', 'bar')");
+
+$result = $conn->createQueryBuilder()
+    ->select('*')
+    ->from('table1')
+    ->fetchAllAssociative();
+dump($result);
+
+# array
+#   array
+#     "v" => "foo"
+#     "v2" => "bar"
+```
+
+For more information about the Quack Remote Protocol, see the [documentation](https://duckdb.org/docs/current/quack/overview).
 
 ## Schema Dump
 
