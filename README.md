@@ -497,8 +497,6 @@ __Apache Parquet__: very fast and efficient column based storage file format con
 Each column is split into several column groups. Depending on the query, the file can be read partially by certain columns groups.\
 Different compression or dictionary algorithms can be applied to each column. Also supports encryption.
 
-Note: You can read and save Parquet files on local file systems or directly on [S3 object storage](https://duckdb.org/docs/lts/core_extensions/httpfs/s3api).
-
 ## Read and write Parquet files with SQL Query Builder
 
 ```php
@@ -639,6 +637,38 @@ dump($rows);
 ```
 
 See the documentation for [managing secrets](https://duckdb.org/docs/current/configuration/secrets_manager) and [read_json()](https://duckdb.org/docs/lts/data/json/loading_json).
+
+## Read data from S3, write data to S3
+
+Start [RustFS](https://rustfs.com) container, create new "my-bucket" bucket:
+
+```bash
+docker run --rm -p 9000:9000 rustfs/rustfs --access-key "access-key" --secret-key "secret-key"
+docker run --network host --entrypoint sh rustfs/rc -c "
+  rc alias set local http://127.0.0.1:9000 'access-key' 'secret-key'
+  rc bucket create local/my-bucket"
+```
+
+Use DuckDB [httpfs](https://duckdb.org/docs/current/core_extensions/httpfs/s3api) extension to read and write data from/to S3:
+
+```php
+// set credentials
+$entityManager->getConnection()->executeStatement("
+    CREATE SECRET rustfs (TYPE s3, ENDPOINT '127.0.0.1:9000', USE_SSL false,
+    URL_STYLE 'path', KEY_ID 'access-key', SECRET 'secret-key')");
+// write data to S3
+$entityManager->getConnection()->executeStatement("
+    COPY ( select 'bar' as foo ) TO 's3://my-bucket/numbers.parquet' (FORMAT parquet)");
+// read data from S3
+$rows = $entityManager->getConnection()->createQueryBuilder()
+    ->select('*')
+    ->from("'s3://my-bucket/numbers.parquet'")
+    ->fetchAssociative();
+dump($rows);
+
+# Array
+#     [foo] => bar
+```
 
 ## Copy data from MariaDB to a Parquet file
 
