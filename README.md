@@ -621,8 +621,9 @@ dump(array_map('json_encode', $rows));
 ## Read private data using REST APIs
 
 ```php
-$url = 'https://httpbin.org/headers';
+$url = 'https://mockhttp.org/headers';
 $entityManager->getConnection()->executeStatement("CREATE SECRET http_auth (TYPE http, SCOPE '{$url}', BEARER_TOKEN 'some secret')");
+$entityManager->getConnection()->executeStatement('SET force_download=true');
 
 $rows = $entityManager->getConnection()->createQueryBuilder()
     ->select('*')
