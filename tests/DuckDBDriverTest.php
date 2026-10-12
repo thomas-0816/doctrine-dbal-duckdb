@@ -431,7 +431,7 @@ final class DuckDBDriverTest extends TestCase
 
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
         $connection = DriverManager::getConnection($connectionParams);
-        $connection->fetchOne('invalid');
+        $connection->fetchOne('invalid invalid');
     }
 
     public function testTableNotFoundException(): void
