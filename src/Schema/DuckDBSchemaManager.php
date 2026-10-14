@@ -46,17 +46,6 @@ class DuckDBSchemaManager extends AbstractSchemaManager
         throw NotSupported::new(__METHOD__);
     }
 
-    public function dropTable(string $name): void
-    {
-        $table  = trim($name, '"');
-        $schema = null;
-        if (str_contains($table, '.')) {
-            [$schema, $table] = explode('.', $table, 2);
-        }
-
-        parent::dropTable($name);
-    }
-
     /**
      * @deprecated Use the schema name and the unqualified table name separately instead.
      *
