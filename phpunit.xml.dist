@@ -14,6 +14,9 @@
         <include>
             <directory>src</directory>
         </include>
+        <exclude>
+            <file>src/PolyFills.php</file>
+        </exclude>
     </source>
     <php>
         <!--<server name="DOCTRINE_DEPRECATIONS" value="trigger"/>-->
