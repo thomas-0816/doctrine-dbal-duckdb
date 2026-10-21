@@ -54,6 +54,9 @@ jobs:
           - 4.4.0
           - 4.4.*
           - 4.5.0
+        duckdb-version:
+          - ^1
+          - ^2-beta
         exclude:
           - os: ubuntu-24.04-arm
             thread-safety: zts
@@ -61,7 +64,6 @@ jobs:
             thread-safety: zts
           - os: windows-2022
             thread-safety: zts
-
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,13 +81,14 @@ jobs:
         env:
           BOX_REQUIREMENT_CHECKER: false
           dbal: ${{ matrix.dbal }}
+          duckdb_version: ${{ matrix.duckdb-version }}
         run: |
           uname -a
           php -v
           if [ "$RUNNER_OS" = "Windows" ]; then
-            pie install -v thomas-0816/pdo-duckdb-php
+            pie install -v thomas-0816/pdo-duckdb-php:${duckdb_version}
           else
-            sudo -E pie install -v thomas-0816/pdo-duckdb-php
+            sudo -E pie install -v thomas-0816/pdo-duckdb-php:${duckdb_version}
           fi
           php -m | grep duckdb
           rm composer.lock

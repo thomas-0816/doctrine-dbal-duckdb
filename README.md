@@ -18,7 +18,10 @@ Integrates DuckDB's analytical database engine into Doctrine, enabling fast anal
 Install and setup [pdo_duckdb](https://github.com/thomas-0816/pdo-duckdb-php) database driver with [PIE](https://github.com/php/pie):
 
 ```bash
-pie install thomas-0816/pdo-duckdb-php
+# DuckDB 1.x
+pie install thomas-0816/pdo-duckdb-php:^1
+# DuckDB 2.x
+pie install thomas-0816/pdo-duckdb-php:^2-beta
 ```
 
 ## Configuration
@@ -71,7 +74,11 @@ DuckDB extensions work the same way as they do in DuckDB CLI.
 ## Install and load pdo_duckdb on demand
 
 ```bash
-pie install --skip-enable-extension thomas-0816/pdo-duckdb-php
+# DuckDB 1.x
+pie install --skip-enable-extension thomas-0816/pdo-duckdb-php:^1
+# DuckDB 2.x
+pie install --skip-enable-extension thomas-0816/pdo-duckdb-php:^2-beta
+
 php -d extension=pdo_duckdb bin/console SomeCommand
 ```
 

@@ -35,6 +35,9 @@ jobs:
           - 6.*
           - 7.*
           - 8.1.*
+        duckdb-version:
+          - ^1
+          - ^2-beta
         exclude:
           - php-version: 8.2
             symfony-version: 8.1.*
@@ -53,15 +56,16 @@ jobs:
       - name: Test
         env:
           symfony_version: ${{ matrix.symfony-version }}
+          duckdb_version: ${{ matrix.duckdb-version }}
           BOX_REQUIREMENT_CHECKER: false
         shell: bash
         run: |
           uname -a
           php -v
           if [ "$RUNNER_OS" = "Windows" ]; then
-            pie install -v thomas-0816/pdo-duckdb-php
+            pie install -v thomas-0816/pdo-duckdb-php:${duckdb_version}
           else
-            sudo -E pie install -v thomas-0816/pdo-duckdb-php
+            sudo -E pie install -v thomas-0816/pdo-duckdb-php:${duckdb_version}
           fi
           php -m | grep duckdb
           composer create-project symfony/skeleton:${symfony_version} example-app
