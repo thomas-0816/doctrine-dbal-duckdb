@@ -95,7 +95,7 @@ jobs:
           composer install
           composer require doctrine/dbal:${dbal}
           composer show | grep dbal
-          if [ "$RUNNER_IMAGE" = "ubuntu-24.04" ]; then
+          if [ "$RUNNER_OS" != "Windows" ]; then
             vendor/bin/php-cs-fixer fix --dry-run --allow-risky=yes --diff
             vendor/bin/phpstan analyse
           fi
