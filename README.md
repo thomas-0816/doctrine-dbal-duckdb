@@ -1183,7 +1183,7 @@ A complete list is available in the DuckDB documentation: [Securing DuckDB](http
 # testing
 composer test
 composer test_fix
-composer phpunit --coverage-text
+composer phpunit
 ```
 
 ## Why DuckDB?
