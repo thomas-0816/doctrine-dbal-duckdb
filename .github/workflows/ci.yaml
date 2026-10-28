@@ -96,10 +96,10 @@ jobs:
           composer require doctrine/dbal:${dbal}
           composer show | grep dbal
           if [ "$RUNNER_OS" != "Windows" ]; then
-            vendor/bin/php-cs-fixer fix --dry-run --allow-risky=yes --diff
-            vendor/bin/phpstan analyse
+            composer phpcsfixer
+            composer phpstan
           fi
-          vendor/bin/phpunit --coverage-text
+          composer phpunit
 
   zizmor:
     name: zizmor

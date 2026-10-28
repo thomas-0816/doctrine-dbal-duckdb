@@ -31,10 +31,10 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "scripts": {
-        "phpcsfixer": "vendor/bin/php-cs-fixer fix --dry-run --allow-risky=yes --diff",
-        "phpcsfixer_fix": "vendor/bin/php-cs-fixer fix --allow-risky=yes --diff",
-        "phpstan": "vendor/bin/phpstan analyse",
-        "phpunit": "vendor/bin/phpunit --coverage-text --coverage-html=.phpunit.coverage",
+        "phpcsfixer": "@php php-cs-fixer fix --dry-run --allow-risky=yes --diff",
+        "phpcsfixer_fix": "@php php-cs-fixer fix --allow-risky=yes --diff",
+        "phpstan": "@php phpstan analyse",
+        "phpunit": "@php phpunit --coverage-text --coverage-html=.phpunit.coverage",
         "test": ["@phpcsfixer", "@phpstan", "@phpunit"],
         "test_fix": ["@phpcsfixer_fix", "@phpstan", "@phpunit"]
     }
