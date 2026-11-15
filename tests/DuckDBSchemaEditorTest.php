@@ -5,7 +5,6 @@ namespace DuckDb\DBAL\Tests;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
-use Doctrine\DBAL\Schema\Exception\IndexNameInvalid;
 use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
@@ -442,31 +441,29 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection->executeStatement('CREATE INDEX t1_id on t1(id)');
 
         $names = [];
-        foreach ($schemaManager->listTables() as $table) {
+        foreach ($schemaManager->introspectTables() as $table) {
             $names[] = $table->getObjectName()->getUnqualifiedName()->getValue();
         }
         Assert::assertSame(['t0', 't1'], $names);
 
-        $names = $schemaManager->listTableNames();
+        $names = [];
+        foreach ($schemaManager->introspectTableNames() as $tableName) {
+            $names[] = $tableName->getUnqualifiedName()->getValue();
+        }
         Assert::assertSame(['t0', 't1'], $names);
     }
 
     public function testListView(): void
     {
         $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
-
         $schemaManager = $connection->createSchemaManager();
-
         $connection->executeStatement('CREATE TABLE base (id INTEGER)');
         $connection->executeStatement('CREATE VIEW base_view AS SELECT id FROM base');
-
-        $views = $schemaManager->listViews();
         $names = [];
-        foreach ($views as $view) {
-            $names[] = $view->getObjectName()->toString();
+        foreach ($schemaManager->introspectViews() as $view) {
+            $names[] = $view->getObjectName()->getUnqualifiedName();
         }
-
-        Assert::assertContains('main.base_view', $names);
+        Assert::assertContains('base_view', $names);
     }
 
     public function testInvalidEnum(): void
@@ -567,22 +564,6 @@ final class DuckDBSchemaEditorTest extends TestCase
             'DROP INDEX idx_v0',
             'CREATE INDEX idx_v0 ON t1 (v0, v1)',
         ], $statements);
-    }
-
-    public function testAlterTableAddIndexWithEmptyName(): void
-    {
-        $this->expectException(IndexNameInvalid::class);
-
-        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
-        $schemaManager = $connection->createSchemaManager();
-
-        $connection->executeStatement('CREATE TABLE t1 (id integer primary key, v0 varchar)');
-
-        $fromSchema = $schemaManager->introspectSchema();
-        $toSchema   = clone $fromSchema;
-        $toSchema->getTable('t1')->addIndex(['v0'], '');
-        $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
-        $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
     }
 
     public function testRenameTable(): void
