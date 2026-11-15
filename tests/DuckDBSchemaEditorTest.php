@@ -11,6 +11,7 @@ use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
 use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\Table;
+use Doctrine\DBAL\Schema\TableEditor;
 use Doctrine\DBAL\Schema\UniqueConstraint;
 use Doctrine\DBAL\Types\BlobType;
 use Doctrine\DBAL\Types\DateTimeImmutableType;
@@ -93,9 +94,11 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection->executeStatement("CREATE TABLE t1 (i1 uinteger, v0 varchar)");
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $table = $toSchema->getTable('t1');
-        $table->dropColumn('v0');
+        $toSchema = $fromSchema->edit()
+            ->modifyTableByUnquotedName('t1', static function (TableEditor $table): void {
+                $table->dropColumnByUnquotedName('v0');
+            })
+            ->create();
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         foreach ($statements as $statement) {
@@ -104,28 +107,30 @@ final class DuckDBSchemaEditorTest extends TestCase
         Assert::assertSame(['ALTER TABLE t1 DROP COLUMN v0'], $statements);
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $sequence = $toSchema->createSequence('t1_id_seq');
-        $table = $toSchema->getTable('t1');
-        $table->addColumn('id', 'integer', ['default' => "nextval('t1_id_seq')"]);
-        $table->addColumn('v2', 'json', ['comment' => 'foo']);
-        $table->addColumn('v3', 'guid');
-        $table->addColumn('v4', 'string', ['length' => 42, 'default' => 'foo']);
-        $table->addColumn('v7', 'datetimetz', ['notnull' => false]);
-        $table->addColumn('v8', 'duckdb', ['columndefinition' => 'timetz', 'notnull' => false]);
-        $table->addColumn('v9', 'binary', ['notnull' => false]);
-        $table->addColumn('v10', 'enum', ['values' => ['a', 'b', 'c']]);
-        $table->addColumn('v11', 'duckdb', ['columndefinition' => 'geometry', 'notnull' => false]);
-        $table->addColumn('v12', 'duckdb', ['columndefinition' => 'variant', 'notnull' => false]);
-        $table->addColumn('v14', 'boolean', ['notnull' => false]);
-        $table->addColumn('v16', 'duckdb', ['columndefinition' => 'bignum', 'notnull' => false]);
-        $table->addColumn('v17', 'duckdb', ['columndefinition' => 'hugeint', 'notnull' => false]);
-        $table->addColumn('v18', 'duckdb', ['columndefinition' => 'union(num INTEGER, str VARCHAR)', 'notnull' => false]);
-        $table->addColumn('v19', 'duckdb', ['columndefinition' => 'map(INTEGER, VARCHAR)', 'notnull' => false]);
-        $table->addColumn('v20', 'duckdb', ['columndefinition' => 'struct(a STRUCT(x INTEGER), b VARCHAR)', 'notnull' => false]);
-        $table->addColumn('descr', 'text', ['notnull' => false]);
-        $table->setPrimaryKey(['id']);
-        $table->setComment('bar');
+        $toSchema = $fromSchema->edit()
+            ->addSequence(Sequence::editor()->setUnquotedName('t1_id_seq')->create())
+            ->modifyTableByUnquotedName('t1', static function (TableEditor $table): void {
+                $table->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->setDefaultValue("nextval('t1_id_seq')")->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v2')->setTypeName('json')->setComment('foo')->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v3')->setTypeName('guid')->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v4')->setTypeName('string')->setLength(42)->setDefaultValue('foo')->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v7')->setTypeName('datetimetz')->setNotNull(false)->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v8')->setTypeName('duckdb')->setColumnDefinition('timetz')->setNotNull(false)->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v9')->setTypeName('binary')->setNotNull(false)->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v10')->setTypeName('enum')->setValues(['a', 'b', 'c'])->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v11')->setTypeName('duckdb')->setColumnDefinition('geometry')->setNotNull(false)->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v12')->setTypeName('duckdb')->setColumnDefinition('variant')->setNotNull(false)->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v14')->setTypeName('boolean')->setNotNull(false)->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v16')->setTypeName('duckdb')->setColumnDefinition('bignum')->setNotNull(false)->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v17')->setTypeName('duckdb')->setColumnDefinition('hugeint')->setNotNull(false)->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v18')->setTypeName('duckdb')->setColumnDefinition('union(num INTEGER, str VARCHAR)')->setNotNull(false)->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v19')->setTypeName('duckdb')->setColumnDefinition('map(INTEGER, VARCHAR)')->setNotNull(false)->create());
+                $table->addColumn(Column::editor()->setUnquotedName('v20')->setTypeName('duckdb')->setColumnDefinition('struct(a STRUCT(x INTEGER), b VARCHAR)')->setNotNull(false)->create());
+                $table->addColumn(Column::editor()->setUnquotedName('descr')->setTypeName('text')->setNotNull(false)->create());
+                $table->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('id')->create());
+                $table->setComment('bar');
+            })
+            ->create();
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         foreach ($statements as $statement) {
@@ -161,10 +166,12 @@ final class DuckDBSchemaEditorTest extends TestCase
         ], $statements);
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $table = $toSchema->getTable('t1');
-        $table->addColumn('v14_2', 'boolean', ['notnull' => false]);
-        $table->dropColumn('v14');
+        $toSchema = $fromSchema->edit()
+            ->modifyTableByUnquotedName('t1', static function (TableEditor $table): void {
+                $table->addColumn(Column::editor()->setUnquotedName('v14_2')->setTypeName('boolean')->setNotNull(false)->create());
+                $table->dropColumnByUnquotedName('v14');
+            })
+            ->create();
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         foreach ($statements as $statement) {
@@ -181,9 +188,11 @@ final class DuckDBSchemaEditorTest extends TestCase
 
         $connection->executeStatement('CREATE SEQUENCE t1_id_seq');
 
-        $table = $schemaManager->introspectSchema()->createTable('t1');
-        $table->addColumn('id', Types::INTEGER, ['default' => "nextval('t1_id_seq')"]);
-        $table->setPrimaryKey(['id']);
+        $table = Table::editor()
+            ->setUnquotedName('t1')
+            ->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->setDefaultValue("nextval('t1_id_seq')")->create())
+            ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('id')->create())
+            ->create();
         $schemaManager->createTable($table);
         Assert::assertCount(1, $schemaManager->introspectSequences());
         Assert::assertCount(1, $schemaManager->introspectTableNames());
@@ -191,8 +200,10 @@ final class DuckDBSchemaEditorTest extends TestCase
         Assert::assertCount(1, $schemaManager->introspectSequences());
         Assert::assertSame([], $schemaManager->introspectTableNames());
 
-        $plain = $schemaManager->introspectSchema()->createTable('t2');
-        $plain->addColumn('id', Types::INTEGER);
+        $plain = Table::editor()
+            ->setUnquotedName('t2')
+            ->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->create())
+            ->create();
         $schemaManager->createTable($plain);
         $schemaManager->dropTable('t2');
         Assert::assertSame([], $schemaManager->introspectTableNames());
