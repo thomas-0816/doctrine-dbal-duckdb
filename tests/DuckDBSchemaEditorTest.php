@@ -543,10 +543,12 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection->executeStatement('CREATE INDEX idx_v0 ON t1 (v0)');
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $table = $toSchema->getTable('t1');
-        $table->dropColumn('v0');
-        $table->addColumn('v0_2', 'boolean', ['notnull' => false]);
+        $toSchema = $fromSchema->edit()
+            ->modifyTableByUnquotedName('t1', static function (TableEditor $table): void {
+                $table->dropColumnByUnquotedName('v0');
+                $table->addColumn(Column::editor()->setUnquotedName('v0_2')->setTypeName('boolean')->setNotNull(false)->create());
+            })
+            ->create();
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         foreach ($statements as $statement) {
