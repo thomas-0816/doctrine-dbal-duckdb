@@ -7,7 +7,6 @@ use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Schema\Exception\IndexNameInvalid;
 use Doctrine\DBAL\Schema\Column;
-use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
 use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\Table;
@@ -760,27 +759,34 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
         $schemaManager = $connection->createSchemaManager();
 
-        $oldTable = $schemaManager->introspectSchema()->createTable('t1');
-        $oldTable->addColumn('id', Types::INTEGER);
-        $oldTable->addColumn('name', Types::STRING);
-        $oldTable->setPrimaryKey(['id']);
+        $oldTable = Table::editor()
+            ->setUnquotedName('t1')
+            ->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->create())
+            ->addColumn(Column::editor()->setUnquotedName('name')->setTypeName('string')->create())
+            ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('id')->create())
+            ->create();
 
-        $newTable = $schemaManager->introspectSchema()->createTable('t1');
-        $newTable->addColumn('id', Types::INTEGER);
-        $newTable->addColumn('name', Types::STRING);
-        $newTable->setPrimaryKey(['id']);
-        $newTable->dropColumn('id');
+        $newTable = Table::editor()
+            ->setUnquotedName('t1')
+            ->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->create())
+            ->addColumn(Column::editor()->setUnquotedName('name')->setTypeName('string')->create())
+            ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('id')->create())
+            ->dropPrimaryKeyConstraint()
+            ->dropColumnByUnquotedName('id')
+            ->create();
 
         $diff = $schemaManager->createComparator()->compareTables($oldTable, $newTable);
         Assert::assertSame(['id'], array_values(array_map(static fn(Column $column): string => $column->getName(), $diff->getDroppedColumns())));
         Assert::assertCount(1, $diff->getDroppedIndexes());
         Assert::assertTrue($diff->getDroppedIndexes()[0]->isPrimary());
 
-        $newTable = $schemaManager->introspectSchema()->createTable('t1');
-        $newTable->addColumn('id', Types::INTEGER);
-        $newTable->addColumn('name', Types::STRING);
-        $newTable->setPrimaryKey(['id']);
-        $newTable->dropColumn('name');
+        $newTable = Table::editor()
+            ->setUnquotedName('t1')
+            ->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->create())
+            ->addColumn(Column::editor()->setUnquotedName('name')->setTypeName('string')->create())
+            ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('id')->create())
+            ->dropColumnByUnquotedName('name')
+            ->create();
 
         $diff = $schemaManager->createComparator()->compareTables($oldTable, $newTable);
         Assert::assertSame([], $diff->getDroppedIndexes());
