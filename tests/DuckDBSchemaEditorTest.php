@@ -243,35 +243,36 @@ final class DuckDBSchemaEditorTest extends TestCase
         Assert::assertSame('bar', $schemaManager->introspectTableByUnquotedName('t1')->getComment());
 
         $columns = $schemaManager->introspectTableColumnsByUnquotedName('t1');
+        $typeProvider = $connection->getConfiguration()->getTypeProvider();
         Assert::assertSame('i1', $columns[0]->getObjectName()->getIdentifier()->getValue());
         Assert::assertTrue($columns[0]->getUnsigned());
         Assert::assertTrue($columns[0]->getNotnull());
         Assert::assertFalse($columns[0]->getAutoincrement());
         Assert::assertSame('foo', $columns[0]->getComment());
-        Assert::assertInstanceOf(DuckDBType::class, $columns[0]->getType());
-        Assert::assertSame('uinteger', $columns[0]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
-        Assert::assertInstanceOf(EnumType::class, $columns[1]->getType());
+        Assert::assertInstanceOf(DuckDBType::class, $typeProvider->get($columns[0]->getTypeName()));
+        Assert::assertSame('uinteger', $typeProvider->get($columns[0]->getTypeName())->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(EnumType::class, $typeProvider->get($columns[1]->getTypeName()));
         Assert::assertSame(['ab', 'cde'], $columns[1]->getValues());
-        Assert::assertInstanceOf(DuckDBType::class, $columns[2]->getType());
-        Assert::assertSame('varchar[]', $columns[2]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
-        Assert::assertInstanceOf(DuckDBType::class, $columns[3]->getType());
-        Assert::assertSame('geometry', $columns[3]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
-        Assert::assertInstanceOf(DuckDBType::class, $columns[4]->getType());
-        Assert::assertSame('uhugeint', $columns[4]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(DuckDBType::class, $typeProvider->get($columns[2]->getTypeName()));
+        Assert::assertSame('varchar[]', $typeProvider->get($columns[2]->getTypeName())->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(DuckDBType::class, $typeProvider->get($columns[3]->getTypeName()));
+        Assert::assertSame('geometry', $typeProvider->get($columns[3]->getTypeName())->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(DuckDBType::class, $typeProvider->get($columns[4]->getTypeName()));
+        Assert::assertSame('uhugeint', $typeProvider->get($columns[4]->getTypeName())->getSQLDeclaration([], new DuckDBPlatform()));
         Assert::assertSame(12, $columns[5]->getPrecision());
         Assert::assertSame(3, $columns[5]->getScale());
-        Assert::assertInstanceOf(DuckDBType::class, $columns[6]->getType());
-        Assert::assertSame('struct(v varchar, i integer, a varchar[], d decimal(18,3))', $columns[6]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
-        Assert::assertInstanceOf(BlobType::class, $columns[7]->getType());
-        Assert::assertSame('BLOB', $columns[7]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
-        Assert::assertInstanceOf(DateTimeImmutableType::class, $columns[8]->getType());
-        Assert::assertSame('TIMESTAMP', $columns[8]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
-        Assert::assertInstanceOf(DateTimeTzImmutableType::class, $columns[9]->getType());
-        Assert::assertSame('TIMESTAMP WITH TIME ZONE', $columns[9]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
-        Assert::assertInstanceOf(TimeImmutableType::class, $columns[10]->getType());
-        Assert::assertSame('TIME', $columns[10]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
-        Assert::assertInstanceOf(DuckDBType::class, $columns[11]->getType());
-        Assert::assertSame('time with time zone', $columns[11]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(DuckDBType::class, $typeProvider->get($columns[6]->getTypeName()));
+        Assert::assertSame('struct(v varchar, i integer, a varchar[], d decimal(18,3))', $typeProvider->get($columns[6]->getTypeName())->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(BlobType::class, $typeProvider->get($columns[7]->getTypeName()));
+        Assert::assertSame('BLOB', $typeProvider->get($columns[7]->getTypeName())->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(DateTimeImmutableType::class, $typeProvider->get($columns[8]->getTypeName()));
+        Assert::assertSame('TIMESTAMP', $typeProvider->get($columns[8]->getTypeName())->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(DateTimeTzImmutableType::class, $typeProvider->get($columns[9]->getTypeName()));
+        Assert::assertSame('TIMESTAMP WITH TIME ZONE', $typeProvider->get($columns[9]->getTypeName())->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(TimeImmutableType::class, $typeProvider->get($columns[10]->getTypeName()));
+        Assert::assertSame('TIME', $typeProvider->get($columns[10]->getTypeName())->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(DuckDBType::class, $typeProvider->get($columns[11]->getTypeName()));
+        Assert::assertSame('time with time zone', $typeProvider->get($columns[11]->getTypeName())->getSQLDeclaration([], new DuckDBPlatform()));
     }
 
     public function testIntrospection(): void
