@@ -11,6 +11,7 @@ use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Index\IndexType;
 use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
+use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\TableEditor;
@@ -20,6 +21,7 @@ use Doctrine\DBAL\Types\DateTimeImmutableType;
 use Doctrine\DBAL\Types\DateTimeTzImmutableType;
 use Doctrine\DBAL\Types\EnumType;
 use Doctrine\DBAL\Types\TimeImmutableType;
+use Doctrine\DBAL\Types\Type;
 use DuckDb\DBAL\Driver;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
 use DuckDb\DBAL\Schema\DuckDBType;
@@ -28,6 +30,13 @@ use PHPUnit\Framework\TestCase;
 
 final class DuckDBSchemaEditorTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        if (! method_exists(Schema::class, 'edit')) {
+            self::markTestSkipped('Schema::edit() requires doctrine/dbal 4.6 or later.');
+        }
+    }
+
     public function testCreateTable(): void
     {
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
@@ -243,7 +252,7 @@ final class DuckDBSchemaEditorTest extends TestCase
         Assert::assertSame('bar', $schemaManager->introspectTableByUnquotedName('t1')->getComment());
 
         $columns = $schemaManager->introspectTableColumnsByUnquotedName('t1');
-        $typeProvider = $connection->getConfiguration()->getTypeProvider();
+        $typeProvider = method_exists($connection->getConfiguration(), 'getTypeProvider') ? $connection->getConfiguration()->getTypeProvider() : Type::getTypeRegistry();
         Assert::assertSame('i1', $columns[0]->getObjectName()->getIdentifier()->getValue());
         Assert::assertTrue($columns[0]->getUnsigned());
         Assert::assertTrue($columns[0]->getNotnull());
