@@ -7,6 +7,7 @@ use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Schema\Exception\IndexNameInvalid;
 use Doctrine\DBAL\Schema\Column;
+use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
 use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\Table;
@@ -567,10 +568,12 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection->executeStatement('CREATE INDEX idx_v0 ON t1 (v0)');
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema   = clone $fromSchema;
-        $table = $toSchema->getTable('t1');
-        $table->dropIndex('idx_v0');
-        $table->addIndex(['v0', 'v1'], 'idx_v0');
+        $toSchema = $fromSchema->edit()
+            ->modifyTableByUnquotedName('t1', static function (TableEditor $table): void {
+                $table->dropIndexByUnquotedName('idx_v0');
+                $table->addIndex(Index::editor()->setUnquotedName('idx_v0')->setUnquotedColumnNames('v0', 'v1')->create());
+            })
+            ->create();
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         foreach ($statements as $statement) {
