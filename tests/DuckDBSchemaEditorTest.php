@@ -6,6 +6,7 @@ use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Schema\Column;
+use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
 use Doctrine\DBAL\Schema\Sequence;
@@ -17,7 +18,6 @@ use Doctrine\DBAL\Types\DateTimeImmutableType;
 use Doctrine\DBAL\Types\DateTimeTzImmutableType;
 use Doctrine\DBAL\Types\EnumType;
 use Doctrine\DBAL\Types\TimeImmutableType;
-use Doctrine\DBAL\Types\Types;
 use DuckDb\DBAL\Driver;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
 use DuckDb\DBAL\Schema\DuckDBType;
@@ -321,11 +321,18 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
         $schemaManager = $connection->createSchemaManager();
 
-        $schema = clone $schemaManager->introspectSchema();
-        $sequence = $schema->createSequence('parent_id_seq');
-        $parent = $schema->createTable('parent');
-        $parent->addColumn('id', Types::INTEGER, ['default' => "nextval('parent_id_seq')"]);
-        $parent->setPrimaryKey(['id']);
+        $sequence = Sequence::editor()->setUnquotedName('parent_id_seq')->create();
+        $parent = Table::editor()
+            ->setUnquotedName('parent')
+            ->addColumn(
+                Column::editor()
+                    ->setUnquotedName('id')
+                    ->setTypeName('integer')
+                    ->setDefaultValue("nextval('parent_id_seq')")
+                    ->create(),
+            )
+            ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('id')->create())
+            ->create();
         $statement = $connection->getDatabasePlatform()->getCreateSequenceSQL($sequence);
         $statements = $connection->getDatabasePlatform()->getCreateTableSQL($parent);
         $schemaManager->createSequence($sequence);
@@ -336,14 +343,33 @@ final class DuckDBSchemaEditorTest extends TestCase
             "CREATE TABLE parent (id INTEGER DEFAULT nextval('parent_id_seq') NOT NULL, PRIMARY KEY (id))",
         ], $statements);
 
-        $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $sequence = $schema->createSequence('child_id_seq');
-        $child = $toSchema->createTable('child');
-        $child->addColumn('id', Types::INTEGER, ['default' => "nextval('child_id_seq')"]);
-        $child->addColumn('parent_id', Types::INTEGER, ['notnull' => false]);
-        $child->setPrimaryKey(['id']);
-        $child->addForeignKeyConstraint('parent', ['parent_id'], ['id']);
+        $sequence = Sequence::editor()->setUnquotedName('child_id_seq')->create();
+        $child = Table::editor()
+            ->setUnquotedName('child')
+            ->addColumn(
+                Column::editor()
+                    ->setUnquotedName('id')
+                    ->setTypeName('integer')
+                    ->setDefaultValue("nextval('child_id_seq')")
+                    ->create(),
+            )
+            ->addColumn(
+                Column::editor()
+                    ->setUnquotedName('parent_id')
+                    ->setTypeName('integer')
+                    ->setNotNull(false)
+                    ->create(),
+            )
+            ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('id')->create())
+            ->addForeignKeyConstraint(
+                ForeignKeyConstraint::editor()
+                    ->setUnquotedName('FK_22B35429727ACA70')
+                    ->setUnquotedReferencingColumnNames('parent_id')
+                    ->setUnquotedReferencedTableName('parent')
+                    ->setUnquotedReferencedColumnNames('id')
+                    ->create(),
+            )
+            ->create();
         $statement = $connection->getDatabasePlatform()->getCreateSequenceSQL($sequence);
         $statements = $connection->getDatabasePlatform()->getCreateTableSQL($child);
         $schemaManager->createSequence($sequence);
