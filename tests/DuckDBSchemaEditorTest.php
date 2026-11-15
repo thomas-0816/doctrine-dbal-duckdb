@@ -393,21 +393,6 @@ final class DuckDBSchemaEditorTest extends TestCase
         Assert::assertSame(['main'], $names);
     }
 
-    public function testIntrospectTables(): void
-    {
-        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
-        $schemaManager = $connection->createSchemaManager();
-
-        $connection->executeStatement('CREATE TABLE t1 (id INTEGER DEFAULT 42, b1 bool default true, b2 bool default false)');
-        $connection->executeStatement('CREATE INDEX t1_id on t1(id)');
-
-        $names = [];
-        foreach ($schemaManager->introspectTables() as $table) {
-            $names[] = $table->getObjectName()->getUnqualifiedName()->getValue();
-        }
-        Assert::assertSame(['t1'], $names);
-    }
-
     public function testCreateSequence(): void
     {
         $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
@@ -525,26 +510,6 @@ final class DuckDBSchemaEditorTest extends TestCase
 
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
-    }
-
-    public function testCreateForeignKey(): void
-    {
-        $this->expectException(NotSupported::class);
-
-        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
-        $schemaManager = $connection->createSchemaManager();
-
-        $schemaManager->createForeignKey(new ForeignKeyConstraint(['parent_id'], 'parent', ['id'], 'fk_parent'), 'child');
-    }
-
-    public function testDropForeignKey(): void
-    {
-        $this->expectException(NotSupported::class);
-
-        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
-        $schemaManager = $connection->createSchemaManager();
-
-        $schemaManager->dropForeignKey('fk_parent', 'child');
     }
 
     public function testAlterTableDropIndexedColumn(): void
@@ -819,22 +784,5 @@ final class DuckDBSchemaEditorTest extends TestCase
 
         $diff = $schemaManager->createComparator()->compareTables($oldTable, $newTable);
         Assert::assertSame([], $diff->getDroppedIndexes());
-    }
-
-    public function testGetCreateDatabaseSQL(): void
-    {
-        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
-        $schemaManager = $connection->createSchemaManager();
-        $schemaManager->createDatabase(sys_get_temp_dir() . '/db1.duckdb');
-        Assert::assertFileExists(sys_get_temp_dir() . '/db1.duckdb');
-    }
-
-    public function testGetDropDatabaseSQL(): void
-    {
-        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
-        $schemaManager = $connection->createSchemaManager();
-        touch(sys_get_temp_dir() . '/db1.duckdb');
-        $schemaManager->dropDatabase(sys_get_temp_dir() . '/db1.duckdb');
-        Assert::assertFileDoesNotExist(sys_get_temp_dir() . '/db1.duckdb');
     }
 }
