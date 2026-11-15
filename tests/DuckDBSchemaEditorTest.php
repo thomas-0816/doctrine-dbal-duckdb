@@ -389,17 +389,21 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection = DriverManager::getConnection($connectionParams);
         $schemaManager = $connection->createSchemaManager();
 
-        $table = $schemaManager->introspectSchema()->createTable('t1');
-        $table->addColumn('id', 'integer');
-        $table->addColumn('v0', 'string');
-        $table->addIndex(['v0'], 'idx_v0');
+        $table = Table::editor()
+            ->setUnquotedName('t1')
+            ->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->create())
+            ->addColumn(Column::editor()->setUnquotedName('v0')->setTypeName('string')->create())
+            ->addIndex(Index::editor()->setUnquotedName('idx_v0')->setUnquotedColumnNames('v0')->create())
+            ->create();
         $schemaManager->createTable($table);
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $table = $toSchema->getTable('t1');
-        $table->dropIndex('idx_v0');
-        $table->addIndex(['v0'], 'idx_v1');
+        $toSchema = $fromSchema->edit()
+            ->modifyTableByUnquotedName('t1', static function (TableEditor $table): void {
+                $table->dropIndexByUnquotedName('idx_v0');
+                $table->addIndex(Index::editor()->setUnquotedName('idx_v1')->setUnquotedColumnNames('v0')->create());
+            })
+            ->create();
 
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
@@ -409,8 +413,11 @@ final class DuckDBSchemaEditorTest extends TestCase
         Assert::assertSame(['DROP INDEX idx_v0', 'CREATE INDEX idx_v1 ON t1 (v0)'], $statements);
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $toSchema->getTable('t1')->dropIndex('idx_v1');
+        $toSchema = $fromSchema->edit()
+            ->modifyTableByUnquotedName('t1', static function (TableEditor $table): void {
+                $table->dropIndexByUnquotedName('idx_v1');
+            })
+            ->create();
 
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
@@ -420,8 +427,9 @@ final class DuckDBSchemaEditorTest extends TestCase
         Assert::assertSame(['DROP INDEX idx_v1'], $statements);
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $toSchema->dropTable('t1');
+        $toSchema = $fromSchema->edit()
+            ->dropTableByUnquotedName('t1')
+            ->create();
 
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
