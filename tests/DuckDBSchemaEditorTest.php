@@ -461,9 +461,9 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection->executeStatement('CREATE VIEW base_view AS SELECT id FROM base');
         $names = [];
         foreach ($schemaManager->introspectViews() as $view) {
-            $names[] = $view->getObjectName()->getUnqualifiedName();
+            $names[] = $view->getObjectName()->getUnqualifiedName()->getValue();
         }
-        Assert::assertContains('base_view', $names);
+        Assert::assertSame(['base_view'], $names);
     }
 
     public function testInvalidEnum(): void
