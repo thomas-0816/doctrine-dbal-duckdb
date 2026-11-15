@@ -504,9 +504,14 @@ final class DuckDBSchemaEditorTest extends TestCase
         $schemaManager = $connection->createSchemaManager();
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $table = $toSchema->createTable('t1');
-        $table->addColumn('v11', 'enum', []);
+        $toSchema = $fromSchema->edit()
+            ->addTable(
+                Table::editor()
+                    ->setUnquotedName('t1')
+                    ->addColumn(Column::editor()->setUnquotedName('v11')->setTypeName('enum')->create())
+                    ->create(),
+            )
+            ->create();
 
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
@@ -521,8 +526,11 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection->executeStatement('CREATE INDEX idx_v0 ON t1 (v0)');
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $toSchema->getTable('t1')->dropColumn('v0');
+        $toSchema = $fromSchema->edit()
+            ->modifyTableByUnquotedName('t1', static function (TableEditor $table): void {
+                $table->dropColumnByUnquotedName('v0');
+            })
+            ->create();
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         foreach ($statements as $statement) {
