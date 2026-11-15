@@ -714,12 +714,15 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection->executeStatement('CREATE TABLE t1 (id integer NOT NULL primary key, v0 boolean)');
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $toSchema->dropSequence('t1_id_seq');
-        $toSchema->createSequence('t1_id2_seq');
-        $table = $toSchema->getTable('t1');
-        $table->dropColumn('id');
-        $table->addColumn('id2', 'integer');
+        $toSchema = $fromSchema->edit()
+            ->dropSequenceByUnquotedName('t1_id_seq')
+            ->addSequence(Sequence::editor()->setUnquotedName('t1_id2_seq')->create())
+            ->modifyTableByUnquotedName('t1', static function (TableEditor $table): void {
+                $table->dropPrimaryKeyConstraint();
+                $table->dropColumnByUnquotedName('id');
+                $table->addColumn(Column::editor()->setUnquotedName('id2')->setTypeName('integer')->create());
+            })
+            ->create();
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         foreach ($statements as $statement) {
