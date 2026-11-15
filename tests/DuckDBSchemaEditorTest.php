@@ -6,8 +6,10 @@ use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\InvalidColumnType\ColumnValuesRequired;
 use Doctrine\DBAL\Platforms\Exception\NotSupported;
 use Doctrine\DBAL\Schema\Column;
+use Doctrine\DBAL\Schema\ColumnEditor;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Index;
+use Doctrine\DBAL\Schema\Index\IndexType;
 use Doctrine\DBAL\Schema\PrimaryKeyConstraint;
 use Doctrine\DBAL\Schema\Sequence;
 use Doctrine\DBAL\Schema\Table;
@@ -285,17 +287,20 @@ final class DuckDBSchemaEditorTest extends TestCase
         Assert::assertSame(['t1', 't2'], array_map(static fn(Table $t): string => $t->getObjectName()->getUnqualifiedName()->getValue(), $originalSchema->getTables()));
 
         $fromSchema = $originalSchema;
-        $toSchema = clone $fromSchema;
-        $table = $toSchema->getTable('t2');
-        $table->addColumn('v2', 'duckdb', ['columndefinition' => 'varchar[]'])->setDefault('[21]');
-        $table->addUniqueConstraint(['v2']); // no-op
-        $table->getColumn('ia')->setType($connection->getDatabasePlatform()->getDoctrineType('varchar[]'));
-        //$table->getColumn('ia')->setTypeName('duckdb:varchar[]');
-        //$table->getColumn('ia')->setColumnDefinition('varchar[]');
-        $table->getColumn('ia')->setNotnull(true)->setComment('foo')->setDefault(null);
-        $table->getColumn('v1')->setDefault('21');
-        $table->addUniqueIndex(['v1']);
-        $table->setComment('bar');
+        $toSchema = $fromSchema->edit()
+            ->modifyTableByUnquotedName('t2', static function (TableEditor $table): void {
+                $table->addColumn(Column::editor()->setUnquotedName('v2')->setTypeName('duckdb')->setColumnDefinition('varchar[]')->setDefaultValue('[21]')->create());
+                $table->addUniqueConstraint(UniqueConstraint::editor()->setUnquotedName('UNIQ_C25DFF8DF06B9D0F')->setUnquotedColumnNames('v2')->create()); // no-op
+                $table->modifyColumnByUnquotedName('ia', static function (ColumnEditor $column): void {
+                    $column->setTypeName('duckdb:varchar[]')->setNotNull(true)->setComment('foo')->setDefaultValue(null);
+                });
+                $table->modifyColumnByUnquotedName('v1', static function (ColumnEditor $column): void {
+                    $column->setDefaultValue('21');
+                });
+                $table->addIndex(Index::editor()->setType(IndexType::UNIQUE)->setUnquotedColumnNames('v1'));
+                $table->setComment('bar');
+            })
+            ->create();
 
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
