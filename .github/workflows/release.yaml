@@ -57,6 +57,7 @@ jobs:
         env:
           symfony_version: ${{ matrix.symfony-version }}
           duckdb_version: ${{ matrix.duckdb-version }}
+          tag: ${{ github.event.release.tag_name || github.ref_name }}
           BOX_REQUIREMENT_CHECKER: false
         shell: bash
         run: |
@@ -74,7 +75,7 @@ jobs:
           composer require --dev symfony/maker-bundle
           composer require --dev psy/psysh
           composer show | grep -E '/framework|/dbal|/orm'
-          composer require thomas-0816/doctrine-dbal-duckdb
+          composer require thomas-0816/doctrine-dbal-duckdb:$tag
           sed -E -i.bak 's#DATABASE_URL="[^"]+"#DATABASE_URL="duckdb://_/%kernel.project_dir%/var/db.duckdb"#g' .env
           sed -E -i.bak 's#profiling_collect_backtrace#driver_schemes:\n            duckdb: DuckDb\\DBAL\\Driver\n        profiling_collect_backtrace#g' config/packages/doctrine.yaml
           sed -E -i.bak 's#: identity#: identity\n            DuckDb\\DBAL\\Platforms\\DuckDBPlatform: sequence#g' config/packages/doctrine.yaml
