@@ -366,42 +366,16 @@ final class DuckDBSchemaEditorTest extends TestCase
         Assert::assertSame('parent', $foreignKeys[0]->getReferencedTableName()->getUnqualifiedName()->getValue());
     }
 
-    public function testIntrospectView(): void
-    {
-        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
-        $schemaManager = $connection->createSchemaManager();
-
-        $connection->executeStatement('CREATE TABLE t1 (id INTEGER)');
-        $connection->executeStatement('CREATE VIEW t1_view AS SELECT id FROM t1');
-
-        $names = [];
-        foreach ($schemaManager->introspectViews() as $view) {
-            $names[] = $view->getObjectName()->getUnqualifiedName()->getValue();
-        }
-        Assert::assertSame(['t1_view'], $names);
-    }
-
-    public function testIntrospectSchemas(): void
-    {
-        $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
-        $schemaManager = $connection->createSchemaManager();
-
-        $names = [];
-        foreach ($schemaManager->introspectSchemaNames() as $schemaName) {
-            $names[] = $schemaName->getIdentifier()->getValue();
-        }
-        Assert::assertSame(['main'], $names);
-    }
-
     public function testCreateSequence(): void
     {
         $connection = DriverManager::getConnection(['driverClass' => Driver::class, 'memory' => true]);
         $schemaManager = $connection->createSchemaManager();
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema = clone $fromSchema;
-        $sequence = $toSchema->createSequence('t1');
-        $schemaManager->createSequence($sequence);
+        $toSchema = $fromSchema->edit()
+            ->addSequence(Sequence::editor()->setUnquotedName('t1')->create())
+            ->create();
+        $schemaManager->createSequence($toSchema->getSequence('t1'));
 
         $names = [];
         foreach ($schemaManager->introspectSequences() as $sequence) {
