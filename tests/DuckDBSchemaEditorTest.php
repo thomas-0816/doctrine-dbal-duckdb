@@ -593,12 +593,17 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection->executeStatement('CREATE TABLE t1 (id integer primary key, v0 varchar not null)');
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema   = clone $fromSchema;
-        $toSchema->dropTable('t1');
-        $table = $toSchema->createTable('t1_2');
-        $table->addColumn('id', 'integer');
-        $table->addColumn('v0', 'string');
-        $table->setPrimaryKey(['id']);
+        $toSchema = $fromSchema->edit()
+            ->dropTableByUnquotedName('t1')
+            ->addTable(
+                Table::editor()
+                    ->setUnquotedName('t1_2')
+                    ->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->create())
+                    ->addColumn(Column::editor()->setUnquotedName('v0')->setTypeName('string')->create())
+                    ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('id')->create())
+                    ->create(),
+            )
+            ->create();
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
         Assert::assertSame(['ALTER TABLE t1 RENAME TO t1_2'], $statements);
