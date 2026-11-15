@@ -10,7 +10,8 @@ namespace Doctrine\DBAL\Schema\Metadata {
                 public string $tableName,
                 public int|string|null $id,
                 public ?string $name,
-                public string $columnName
+                public string $columnName,
+                private bool $isClustered = false, /** @phpstan-ignore property.onlyWritten */
             ) {}
         }
     }

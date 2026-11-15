@@ -305,7 +305,8 @@ final readonly class DuckDBMetadataProvider implements MetadataProvider
                     $row['table_name'],
                     null,
                     $row['constraint_name'],
-                    $columnName
+                    $columnName,
+                    false
                 );
             }
         }

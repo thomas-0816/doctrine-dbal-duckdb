@@ -10,7 +10,10 @@ use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\ForeignKeyConstraint;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\BlobType;
+use Doctrine\DBAL\Types\DateTimeImmutableType;
+use Doctrine\DBAL\Types\DateTimeTzImmutableType;
 use Doctrine\DBAL\Types\EnumType;
+use Doctrine\DBAL\Types\TimeImmutableType;
 use Doctrine\DBAL\Types\Types;
 use DuckDb\DBAL\Driver;
 use DuckDb\DBAL\Platforms\DuckDBPlatform;
@@ -38,19 +41,20 @@ final class DuckDBSchemaTest extends TestCase
         $table->addColumn('v6', 'datetime');
         $table->addColumn('v7', 'datetimetz');
         $table->addColumn('v8', 'time');
-        $table->addColumn('v9', 'binary', ['fixed' => true]);
-        $table->addColumn('v10', 'binary');
-        $table->addColumn('v11', 'enum', ['values' => ['a', 'b', 'c']]);
-        $table->addColumn('v12', 'duckdb', ['columndefinition' => 'geometry']);
-        $table->addColumn('v13', 'duckdb', ['columndefinition' => 'variant']);
-        $table->addColumn('v14', 'smallint');
-        $table->addColumn('v15', 'boolean');
-        $table->addColumn('v16', 'bigint');
-        $table->addColumn('v17', 'duckdb', ['columndefinition' => 'bignum']);
-        $table->addColumn('v18', 'duckdb', ['columndefinition' => 'hugeint']);
-        $table->addColumn('v19', 'duckdb', ['columndefinition' => 'union(num INTEGER, str VARCHAR)']);
-        $table->addColumn('v20', 'duckdb', ['columndefinition' => 'map(INTEGER, VARCHAR)']);
-        $table->addColumn('v21', 'duckdb', ['columndefinition' => 'struct(a STRUCT(x INTEGER), b VARCHAR)']);
+        $table->addColumn('v9', 'duckdb', ['columndefinition' => 'timetz']);
+        $table->addColumn('v10', 'binary', ['fixed' => true]);
+        $table->addColumn('v11', 'binary');
+        $table->addColumn('v12', 'enum', ['values' => ['a', 'b', 'c']]);
+        $table->addColumn('v13', 'duckdb', ['columndefinition' => 'geometry']);
+        $table->addColumn('v14', 'duckdb', ['columndefinition' => 'variant']);
+        $table->addColumn('v15', 'smallint');
+        $table->addColumn('v16', 'boolean');
+        $table->addColumn('v17', 'bigint');
+        $table->addColumn('v18', 'duckdb', ['columndefinition' => 'bignum']);
+        $table->addColumn('v19', 'duckdb', ['columndefinition' => 'hugeint']);
+        $table->addColumn('v20', 'duckdb', ['columndefinition' => 'union(num INTEGER, str VARCHAR)']);
+        $table->addColumn('v21', 'duckdb', ['columndefinition' => 'map(INTEGER, VARCHAR)']);
+        $table->addColumn('v22', 'duckdb', ['columndefinition' => 'struct(a STRUCT(x INTEGER), b VARCHAR)']);
         $table->addColumn('descr', 'text', ['notnull' => false]);
         $table->addUniqueConstraint(['descr']);
         $table->setPrimaryKey(['id']);
@@ -61,7 +65,7 @@ final class DuckDBSchemaTest extends TestCase
 
         Assert::assertSame([
             'CREATE SEQUENCE t1_id_seq START WITH 1 INCREMENT BY 1',
-            "CREATE TABLE t1 (id UINTEGER DEFAULT nextval('t1_id_seq') NOT NULL, v2 JSON NOT NULL, v3 UUID NOT NULL, v4 VARCHAR NOT NULL, v5 DATE NOT NULL, v6 TIMESTAMP NOT NULL, v7 TIMESTAMP WITH TIME ZONE NOT NULL, v8 TIME NOT NULL, v9 BLOB NOT NULL, v10 BLOB NOT NULL, v11 ENUM('a', 'b', 'c') NOT NULL, v12 geometry NOT NULL, v13 variant NOT NULL, v14 SMALLINT NOT NULL, v15 BOOLEAN NOT NULL, v16 BIGINT NOT NULL, v17 bignum NOT NULL, v18 hugeint NOT NULL, v19 union(num INTEGER, str VARCHAR) NOT NULL, v20 map(INTEGER, VARCHAR) NOT NULL, v21 struct(a STRUCT(x INTEGER), b VARCHAR) NOT NULL, descr VARCHAR DEFAULT NULL, CONSTRAINT UNIQ_5B54AE374DFDC UNIQUE (descr), PRIMARY KEY (id))",
+            "CREATE TABLE t1 (id UINTEGER DEFAULT nextval('t1_id_seq') NOT NULL, v2 JSON NOT NULL, v3 UUID NOT NULL, v4 VARCHAR NOT NULL, v5 DATE NOT NULL, v6 TIMESTAMP NOT NULL, v7 TIMESTAMP WITH TIME ZONE NOT NULL, v8 TIME NOT NULL, v9 timetz NOT NULL, v10 BLOB NOT NULL, v11 BLOB NOT NULL, v12 ENUM('a', 'b', 'c') NOT NULL, v13 geometry NOT NULL, v14 variant NOT NULL, v15 SMALLINT NOT NULL, v16 BOOLEAN NOT NULL, v17 BIGINT NOT NULL, v18 bignum NOT NULL, v19 hugeint NOT NULL, v20 union(num INTEGER, str VARCHAR) NOT NULL, v21 map(INTEGER, VARCHAR) NOT NULL, v22 struct(a STRUCT(x INTEGER), b VARCHAR) NOT NULL, descr VARCHAR DEFAULT NULL, CONSTRAINT UNIQ_5B54AE374DFDC UNIQUE (descr), PRIMARY KEY (id))",
             "COMMENT ON TABLE t1 IS 'bar'",
             "COMMENT ON COLUMN t1.v2 IS 'foo'",
         ], $statements);
@@ -99,7 +103,8 @@ final class DuckDBSchemaTest extends TestCase
         $table->addColumn('v3', 'guid');
         $table->addColumn('v4', 'string', ['length' => 42, 'default' => 'foo']);
         $table->addColumn('v7', 'datetimetz', ['notnull' => false]);
-        $table->addColumn('v8', 'binary', ['notnull' => false]);
+        $table->addColumn('v8', 'duckdb', ['columndefinition' => 'timetz', 'notnull' => false]);
+        $table->addColumn('v9', 'binary', ['notnull' => false]);
         $table->addColumn('v10', 'enum', ['values' => ['a', 'b', 'c']]);
         $table->addColumn('v11', 'duckdb', ['columndefinition' => 'geometry', 'notnull' => false]);
         $table->addColumn('v12', 'duckdb', ['columndefinition' => 'variant', 'notnull' => false]);
@@ -129,7 +134,8 @@ final class DuckDBSchemaTest extends TestCase
             "ALTER TABLE t1 ADD COLUMN v4 VARCHAR DEFAULT 'foo'",
             'ALTER TABLE t1 ALTER COLUMN v4 SET NOT NULL',
             'ALTER TABLE t1 ADD COLUMN v7 TIMESTAMP WITH TIME ZONE DEFAULT NULL',
-            'ALTER TABLE t1 ADD COLUMN v8 BLOB DEFAULT NULL',
+            'ALTER TABLE t1 ADD COLUMN v8 timetz DEFAULT NULL',
+            'ALTER TABLE t1 ADD COLUMN v9 BLOB DEFAULT NULL',
             "ALTER TABLE t1 ADD COLUMN v10 ENUM('a', 'b', 'c') DEFAULT NULL",
             'ALTER TABLE t1 ALTER COLUMN v10 SET NOT NULL',
             'ALTER TABLE t1 ADD COLUMN v11 geometry DEFAULT NULL',
@@ -204,7 +210,11 @@ final class DuckDBSchemaTest extends TestCase
             hu uhugeint,
             de decimal(12, 3),
             st struct(v VARCHAR, i INTEGER, a VARCHAR[], d DECIMAL),
-            bl blob
+            bl blob,
+            d1 timestamp,
+            d2 timestamptz,
+            t1 time,
+            t2 timetz
         )");
         $connection->executeStatement("COMMENT ON COLUMN t1.i1 IS 'foo'");
         $connection->executeStatement("COMMENT ON TABLE t1 IS 'bar'");
@@ -233,6 +243,14 @@ final class DuckDBSchemaTest extends TestCase
         Assert::assertSame('struct(v varchar, i integer, a varchar[], d decimal(18,3))', $columns[6]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
         Assert::assertInstanceOf(BlobType::class, $columns[7]->getType());
         Assert::assertSame('BLOB', $columns[7]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(DateTimeImmutableType::class, $columns[8]->getType());
+        Assert::assertSame('TIMESTAMP', $columns[8]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(DateTimeTzImmutableType::class, $columns[9]->getType());
+        Assert::assertSame('TIMESTAMP WITH TIME ZONE', $columns[9]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(TimeImmutableType::class, $columns[10]->getType());
+        Assert::assertSame('TIME', $columns[10]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
+        Assert::assertInstanceOf(DuckDBType::class, $columns[11]->getType());
+        Assert::assertSame('time with time zone', $columns[11]->getType()->getSQLDeclaration([], new DuckDBPlatform()));
     }
 
     public function testIntrospection(): void

@@ -203,15 +203,22 @@ final class DuckDBDriverTest extends TestCase
         ]);
         Assert::assertSame($data, $connection->fetchAssociative('SELECT * FROM t6'));
 
+        $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:'];
+        $connection = DriverManager::getConnection($connectionParams);
+        $connection->executeStatement('CREATE TABLE t7 (u1 uuid)');
+        $connection->executeStatement('INSERT INTO t7 VALUES (?)', ['c0e69372-9d3c-442f-915e-e9688f19fc95'], ['string']);
+        $stmt = $connection->prepare('SELECT * FROM t7');
+        Assert::assertSame(['c0e69372-9d3c-442f-915e-e9688f19fc95'], $stmt->executeQuery()->fetchNumeric());
+
         $connectionParams = ['driverClass' => Driver::class, 'dbname' => ':memory:', 'driverOptions' => [PDO::DUCKDB_ATTR_CONFIG => ['TimeZone' => 'Europe/Berlin']]];
         $connection = DriverManager::getConnection($connectionParams);
         $date = new \DateTime("2011-03-05 14:00:21", new \DateTimeZone('Europe/Berlin'));
         $date2 = new \DateTime("2011-03-05 14:00:21", new \DateTimeZone('America/New_York'));
-        $connection->executeStatement('CREATE TABLE t7 (d1 timestamp, d2 timestamptz)');
-        $connection->executeStatement('INSERT INTO t7 VALUES (?, ?)', [$date, $date2], ['datetime', 'datetimetz']);
+        $connection->executeStatement('CREATE TABLE t7 (d1 timestamp, d2 timestamptz, d3 timestamp with time zone, d4 time, d5 timetz, d6 time with time zone)');
+        $connection->executeStatement('INSERT INTO t7 VALUES (?, ?, ?, ?, ?, ?)', [$date, $date2, $date2, $date, '14:00:21+01', '14:00:21+05'], ['datetime', 'datetimetz', 'datetimetz', 'time', 'string', 'string']);
         $stmt = $connection->prepare('SELECT * FROM t7 WHERE d1 >= ?');
         $stmt->bindValue(1, $date, 'datetime');
-        Assert::assertSame(['2011-03-05 14:00:21', '2011-03-05 20:00:21+01'], $stmt->executeQuery()->fetchNumeric());
+        Assert::assertSame(['2011-03-05 14:00:21', '2011-03-05 20:00:21+01', '2011-03-05 20:00:21+01', '14:00:21', '14:00:21+01', '14:00:21+05'], $stmt->executeQuery()->fetchNumeric());
 
         $connection->executeStatement('CREATE TABLE t8 (i1 integer)');
         $connection->executeStatement('INSERT INTO t8 VALUES (1), (2)');
