@@ -324,13 +324,7 @@ final class DuckDBSchemaEditorTest extends TestCase
         $sequence = Sequence::editor()->setUnquotedName('parent_id_seq')->create();
         $parent = Table::editor()
             ->setUnquotedName('parent')
-            ->addColumn(
-                Column::editor()
-                    ->setUnquotedName('id')
-                    ->setTypeName('integer')
-                    ->setDefaultValue("nextval('parent_id_seq')")
-                    ->create(),
-            )
+            ->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->setDefaultValue("nextval('parent_id_seq')")->create())
             ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('id')->create())
             ->create();
         $statement = $connection->getDatabasePlatform()->getCreateSequenceSQL($sequence);
@@ -346,28 +340,12 @@ final class DuckDBSchemaEditorTest extends TestCase
         $sequence = Sequence::editor()->setUnquotedName('child_id_seq')->create();
         $child = Table::editor()
             ->setUnquotedName('child')
-            ->addColumn(
-                Column::editor()
-                    ->setUnquotedName('id')
-                    ->setTypeName('integer')
-                    ->setDefaultValue("nextval('child_id_seq')")
-                    ->create(),
-            )
-            ->addColumn(
-                Column::editor()
-                    ->setUnquotedName('parent_id')
-                    ->setTypeName('integer')
-                    ->setNotNull(false)
-                    ->create(),
-            )
+            ->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->setDefaultValue("nextval('child_id_seq')")->create())
+            ->addColumn(Column::editor()->setUnquotedName('parent_id')->setTypeName('integer')->setNotNull(false)->create())
             ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('id')->create())
             ->addForeignKeyConstraint(
-                ForeignKeyConstraint::editor()
-                    ->setUnquotedName('FK_22B35429727ACA70')
-                    ->setUnquotedReferencingColumnNames('parent_id')
-                    ->setUnquotedReferencedTableName('parent')
-                    ->setUnquotedReferencedColumnNames('id')
-                    ->create(),
+                ForeignKeyConstraint::editor()->setUnquotedName('FK_22B35429727ACA70')->setUnquotedReferencingColumnNames('parent_id')
+                    ->setUnquotedReferencedTableName('parent')->setUnquotedReferencedColumnNames('id')->create(),
             )
             ->create();
         $statement = $connection->getDatabasePlatform()->getCreateSequenceSQL($sequence);
