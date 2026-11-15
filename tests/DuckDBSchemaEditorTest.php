@@ -672,10 +672,15 @@ final class DuckDBSchemaEditorTest extends TestCase
         $schemaManager = $connection->createSchemaManager();
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema   = clone $fromSchema;
-        $toSchema->createSequence('foo.t1_id_seq');
-        $table = $toSchema->createTable('foo.t1');
-        $table->addColumn('id', 'integer');
+        $toSchema = $fromSchema->edit()
+            ->addSequence(Sequence::editor()->setUnquotedName('t1_id_seq', 'foo')->create())
+            ->addTable(
+                Table::editor()
+                    ->setUnquotedName('t1', 'foo')
+                    ->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->create())
+                    ->create(),
+            )
+            ->create();
 
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
