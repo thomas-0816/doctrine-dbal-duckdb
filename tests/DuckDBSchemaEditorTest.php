@@ -641,13 +641,18 @@ final class DuckDBSchemaEditorTest extends TestCase
         $connection->executeStatement('CREATE TABLE t1 (id integer primary key)');
 
         $fromSchema = $schemaManager->introspectSchema();
-        $toSchema   = clone $fromSchema;
-        $toSchema->dropTable('t1');
-        $toSchema->dropSequence('t1_id_seq');
-        $toSchema->createSequence('t1_2_id_seq');
-        $table = $toSchema->createTable('t1_2');
-        $table->addColumn('id', 'integer');
-        $table->setPrimaryKey(['id']);
+        $toSchema = $fromSchema->edit()
+            ->dropSequenceByUnquotedName('t1_id_seq')
+            ->addSequence(Sequence::editor()->setUnquotedName('t1_2_id_seq')->create())
+            ->dropTableByUnquotedName('t1')
+            ->addTable(
+                Table::editor()
+                    ->setUnquotedName('t1_2')
+                    ->addColumn(Column::editor()->setUnquotedName('id')->setTypeName('integer')->create())
+                    ->addPrimaryKeyConstraint(PrimaryKeyConstraint::editor()->setUnquotedColumnNames('id')->create())
+                    ->create(),
+            )
+            ->create();
 
         $diff = $schemaManager->createComparator()->compareSchemas($fromSchema, $toSchema);
         $statements = $connection->getDatabasePlatform()->getAlterSchemaSQL($diff);
