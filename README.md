@@ -77,7 +77,7 @@ DuckDB extensions work the same way as they do in DuckDB CLI.
 # DuckDB 1.x
 pie install --skip-enable-extension thomas-0816/pdo-duckdb-php:^1
 # DuckDB 2.x
-pie install --skip-enable-extension thomas-0816/pdo-duckdb-php:^2-beta
+pie install --skip-enable-extension thomas-0816/pdo-duckdb-php:^2
 
 php -d extension=pdo_duckdb bin/console SomeCommand
 ```

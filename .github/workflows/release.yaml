@@ -37,7 +37,7 @@ jobs:
           - 8.1.*
         duckdb-version:
           - ^1
-          - ^2-beta
+          - ^2
         exclude:
           - php-version: 8.2
             symfony-version: 8.1.*
