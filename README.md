@@ -21,7 +21,7 @@ Install and setup [pdo_duckdb](https://github.com/thomas-0816/pdo-duckdb-php) da
 # DuckDB 1.x
 pie install thomas-0816/pdo-duckdb-php:^1
 # DuckDB 2.x
-pie install thomas-0816/pdo-duckdb-php:^2-beta
+pie install thomas-0816/pdo-duckdb-php:^2
 ```
 
 ## Configuration
